@@ -5,6 +5,7 @@
 
 void kaboomInit(void);
 void checkKaboom(timeUs_t currentTimeUs);
+int findKaboomPinioIndex(void);
 
 #if defined(USE_ACC)
 typedef struct kaboomConfig_s {

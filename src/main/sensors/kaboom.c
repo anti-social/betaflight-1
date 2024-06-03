@@ -70,6 +70,11 @@ void checkKaboom(timeUs_t currentTimeUs)
         return;
     }
 
+    int kaboomPinioIx = findKaboomPinioIndex();
+    if (kaboomPinioIx < 0) {
+        return;
+    }
+
     bool pinState = false;
     if (armDurationUs >= selfDestructionTimeUs) {
         if ((armDurationUs - selfDestructionTimeUs) % (KABOOM_PULSE_TIME_US * 5) < KABOOM_PULSE_TIME_US) {
@@ -77,42 +82,45 @@ void checkKaboom(timeUs_t currentTimeUs)
         }
     }
 
+    if (kaboomStartTimeUs != 0 && currentTimeUs - kaboomStartTimeUs < KABOOM_PULSE_TIME_US) {
+        pinState = true;
+    } else {
+        bool currentBoxState = getBoxIdState(KABOOM);
+        if (currentBoxState && !kaboomBoxState) {
+            pinState = true;
+        } else {
+            float maxSensitivity = kaboomSensitivity;
+            if (getBoxIdState(KABOOM_MORE_SENSITIVITY)) {
+                maxSensitivity = kaboomMoreSensitivity;
+            }
+            float gForce = calcGForce();
+            if (gForce >= maxSensitivity) {
+                pinState = true;
+            }
+        }
+
+        kaboomBoxState = currentBoxState;
+    }
+
+    bool currentPinState =  pinioGet(kaboomPinioIx);
+    if (pinState && !currentPinState) {
+        pinioSet(kaboomPinioIx, pinState);
+        kaboomStartTimeUs = currentTimeUs;
+    } else if (!pinState && currentPinState) {
+        pinioSet(kaboomPinioIx, pinState);
+        kaboomStartTimeUs = 0;
+    }
+}
+
+int findKaboomPinioIndex(void)
+{
     for (int i = 0; i < PINIO_COUNT; i++) {
         uint8_t boxId = pinioBoxGetBoxId(i);
 
         if (boxId == KABOOM) {
-            if (kaboomStartTimeUs != 0 && currentTimeUs - kaboomStartTimeUs < KABOOM_PULSE_TIME_US) {
-                pinState = true;
-            } else {
-                bool currentBoxState = getBoxIdState(boxId);
-                if (currentBoxState && !kaboomBoxState) {
-                    pinState = true;
-                } else {
-                    float maxSensitivity = kaboomSensitivity;
-                    if (getBoxIdState(KABOOM_MORE_SENSITIVITY)) {
-                        maxSensitivity = kaboomMoreSensitivity;
-                    }
-                    float gForce = calcGForce();
-                    if (gForce >= maxSensitivity) {
-                        pinState = true;
-                    }
-                }
-
-                kaboomBoxState = currentBoxState;
-            }
-
-            bool currentPinState =  pinioGet(i);
-            if (pinState && !currentPinState) {
-                pinioSet(i, pinState);
-                kaboomStartTimeUs = currentTimeUs;
-            } else if (!pinState && currentPinState) {
-                pinioSet(i, pinState);
-                kaboomStartTimeUs = 0;
-            }
-
-            // Do we need more kabooms?
-            break;
+            return i;
         }
     }
+    return -1;
 }
 #endif
