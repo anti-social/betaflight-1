@@ -168,6 +168,7 @@
 #include "sensors/esc_sensor.h"
 #include "sensors/gyro.h"
 #include "sensors/gyro_init.h"
+#include "sensors/kaboom.h"
 #include "sensors/initialisation.h"
 
 #include "telemetry/telemetry.h"
@@ -822,6 +823,7 @@ void init(void)
     if (mixerConfig()->mixerMode == MIXER_GIMBAL) {
         accStartCalibration();
     }
+    kaboomInit();
 #endif
     gyroStartCalibration(false);
 #ifdef USE_BARO

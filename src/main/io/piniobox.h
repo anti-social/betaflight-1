@@ -18,8 +18,10 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "common/time.h"
 #include "pg/piniobox.h"
 
 void pinioBoxInit(const pinioBoxConfig_t *pinioBoxConfig);
 void pinioBoxUpdate(timeUs_t currentTimeUs);
 void pinioBoxTaskControl(void);
+uint8_t pinioBoxGetBoxId(int index);

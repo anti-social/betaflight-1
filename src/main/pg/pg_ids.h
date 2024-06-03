@@ -158,6 +158,7 @@
 #define PG_SOFTSERIAL_PIN_CONFIG    558
 #define PG_BETAFLIGHT_END           558
 
+#define PG_KABOOM_CONFIG 1000
 
 // OSD configuration (subject to change)
 #define PG_OSD_FONT_CONFIG 2047

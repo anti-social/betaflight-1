@@ -60,8 +60,11 @@ void pinioBoxUpdate(timeUs_t currentTimeUs)
     UNUSED(currentTimeUs);
 
     for (int i = 0; i < PINIO_COUNT; i++) {
-        if (pinioBoxRuntimeConfig.boxId[i] != BOXID_NONE) {
-            pinioSet(i, getBoxIdState(pinioBoxRuntimeConfig.boxId[i]));
+        uint8_t boxId = pinioBoxRuntimeConfig.boxId[i];
+
+        // TODO: Can we only check user boxes?
+        if (boxId != BOXID_NONE && boxId != KABOOM) {
+            pinioSet(i, getBoxIdState(boxId));
         }
     }
 }
@@ -76,5 +79,9 @@ void pinioBoxTaskControl(void)
         }
     }
     setTaskEnabled(TASK_PINIOBOX, enableTask);
+}
+
+uint8_t pinioBoxGetBoxId(int index) {
+    return pinioBoxRuntimeConfig.boxId[index];
 }
 #endif

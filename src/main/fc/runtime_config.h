@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include <stdbool.h>
+
 #include "common/utils.h"
 
 // FIXME some of these are flight modes, some of these are general status indicators

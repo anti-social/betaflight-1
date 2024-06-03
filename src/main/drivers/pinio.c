@@ -74,6 +74,10 @@ void pinioInit(const pinioConfig_t *pinioConfig)
     }
 }
 
+bool pinioGet(int index) {
+    return pinioRuntime[index].state ^ pinioRuntime[index].inverted;
+}
+
 void pinioSet(int index, bool on)
 {
     bool newState = on ^ pinioRuntime[index].inverted;

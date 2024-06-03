@@ -124,6 +124,7 @@
 #include "sensors/compass.h"
 #include "sensors/esc_sensor.h"
 #include "sensors/gyro.h"
+#include "sensors/kaboom.h"
 #include "sensors/rangefinder.h"
 
 #include "telemetry/frsky_hub.h"
@@ -1778,6 +1779,11 @@ const clivalue_t valueTable[] = {
     { "box_user_3_name", VAR_UINT8 | HARDWARE_VALUE | MODE_STRING, .config.string = { 1, MAX_BOX_USER_NAME_LENGTH, STRING_FLAGS_NONE }, PG_MODE_ACTIVATION_CONFIG, offsetof(modeActivationConfig_t, box_user_3_name) },
     { "box_user_4_name", VAR_UINT8 | HARDWARE_VALUE | MODE_STRING, .config.string = { 1, MAX_BOX_USER_NAME_LENGTH, STRING_FLAGS_NONE }, PG_MODE_ACTIVATION_CONFIG, offsetof(modeActivationConfig_t, box_user_4_name) },
 #endif
+
+    { "kaboom_sensitivity", VAR_UINT8 | MASTER_VALUE, .config.minmaxUnsigned = { 1, 20 }, PG_KABOOM_CONFIG, offsetof(kaboomConfig_t, sensitivity) },
+    { "kaboom_more_sensitivity", VAR_UINT8 | MASTER_VALUE, .config.minmaxUnsigned = { 1, 20 }, PG_KABOOM_CONFIG, offsetof(kaboomConfig_t, more_sensitivity) },
+    { "kaboom_activation_time_s", VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 0, 120}, PG_KABOOM_CONFIG, offsetof(kaboomConfig_t, activation_time_secs) },
+    { "kaboom_self_destruction_time_s", VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 60, 3600}, PG_KABOOM_CONFIG, offsetof(kaboomConfig_t, self_destruction_time_secs) },
 };
 
 const uint16_t valueTableEntryCount = ARRAYLEN(valueTable);

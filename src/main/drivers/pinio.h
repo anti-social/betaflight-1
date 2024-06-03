@@ -34,3 +34,4 @@ struct pinioConfig_s;
 
 void pinioInit(const struct pinioConfig_s *pinioConfig);
 void pinioSet(int index, bool on);
+bool pinioGet(int index);

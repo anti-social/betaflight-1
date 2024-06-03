@@ -93,6 +93,7 @@
 #include "sensors/compass.h"
 #include "sensors/esc_sensor.h"
 #include "sensors/gyro.h"
+#include "sensors/kaboom.h"
 #include "sensors/sensors.h"
 #include "sensors/rangefinder.h"
 
@@ -162,6 +163,13 @@ static void taskBatteryAlerts(timeUs_t currentTimeUs)
 static void taskUpdateAccelerometer(timeUs_t currentTimeUs)
 {
     accUpdate(currentTimeUs);
+}
+#endif
+
+#ifdef USE_ACC
+static void taskCheckKaboom(timeUs_t currentTimeUs)
+{
+    checkKaboom(currentTimeUs);
 }
 #endif
 
@@ -365,6 +373,8 @@ task_attribute_t task_attributes[TASK_COUNT] = {
 #ifdef USE_ACC
     [TASK_ACCEL] = DEFINE_TASK("ACC", NULL, NULL, taskUpdateAccelerometer, TASK_PERIOD_HZ(1000), TASK_PRIORITY_MEDIUM),
     [TASK_ATTITUDE] = DEFINE_TASK("ATTITUDE", NULL, NULL, imuUpdateAttitude, TASK_PERIOD_HZ(100), TASK_PRIORITY_MEDIUM),
+
+    [TASK_KABOOM] = DEFINE_TASK("KABOOM", NULL, NULL, taskCheckKaboom, TASK_PERIOD_HZ(100), TASK_PRIORITY_MEDIUM),
 #endif
 
     [TASK_RX] = DEFINE_TASK("RX", NULL, rxUpdateCheck, taskUpdateRxMain, TASK_PERIOD_HZ(33), TASK_PRIORITY_HIGH), // If event-based scheduling doesn't work, fallback to periodic scheduling
@@ -453,7 +463,6 @@ task_attribute_t task_attributes[TASK_COUNT] = {
 #ifdef USE_RC_STATS
     [TASK_RC_STATS] = DEFINE_TASK("RC_STATS", NULL, NULL, rcStatsUpdate, TASK_PERIOD_HZ(100), TASK_PRIORITY_LOW),
 #endif
-
 };
 
 task_t *getTask(unsigned taskId)
@@ -512,6 +521,8 @@ void tasksInit(void)
         setTaskEnabled(TASK_ACCEL, true);
         rescheduleTask(TASK_ACCEL, TASK_PERIOD_HZ(acc.sampleRateHz));
         setTaskEnabled(TASK_ATTITUDE, true);
+
+        setTaskEnabled(TASK_KABOOM, true);
     }
 #endif
 
