@@ -72,12 +72,9 @@ void checkKaboom(timeUs_t currentTimeUs)
 
     bool pinState = false;
     if (armDurationUs >= selfDestructionTimeUs) {
-        pinState = true;
-    }
-
-    float maxSensitivity = kaboomSensitivity;
-    if (getBoxIdState(KABOOM_MORE_SENSITIVITY)) {
-        maxSensitivity = kaboomMoreSensitivity;
+        if ((armDurationUs - selfDestructionTimeUs) % (KABOOM_PULSE_TIME_US * 5) < KABOOM_PULSE_TIME_US) {
+            pinState = true;
+        }
     }
 
     for (int i = 0; i < PINIO_COUNT; i++) {
@@ -91,6 +88,10 @@ void checkKaboom(timeUs_t currentTimeUs)
                 if (currentBoxState && !kaboomBoxState) {
                     pinState = true;
                 } else {
+                    float maxSensitivity = kaboomSensitivity;
+                    if (getBoxIdState(KABOOM_MORE_SENSITIVITY)) {
+                        maxSensitivity = kaboomMoreSensitivity;
+                    }
                     float gForce = calcGForce();
                     if (gForce >= maxSensitivity) {
                         pinState = true;
