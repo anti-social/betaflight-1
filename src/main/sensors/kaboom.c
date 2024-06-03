@@ -11,8 +11,9 @@
 #ifdef USE_ACC
 #define US_IN_SEC 1000000
 
-#define KABOOM_DEFAULT_SENSITIVITY 4
-#define KABOOM_DEFAULT_MORE_SENSITIVITY 2
+// Sensitivity is a square of a g-force
+#define KABOOM_DEFAULT_SENSITIVITY (9 * 9)
+#define KABOOM_DEFAULT_MORE_SENSITIVITY (4 * 4)
 #define KABOOM_DEFAULT_ACTIVATION_TIME_SECS 60
 #define KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS 1200
 #define KABOOM_PULSE_TIME_US 1000000
@@ -30,8 +31,8 @@ timeUs_t firstArmTimeUs = 0;
 
 void kaboomInit(void)
 {
-    kaboomSensitivity = (float) (kaboomConfig()->sensitivity);
-    kaboomMoreSensitivity = (float) (kaboomConfig()->more_sensitivity);
+    kaboomSensitivity = (float) (kaboomConfig()->sensitivity * kaboomConfig()->sensitivity);
+    kaboomMoreSensitivity = (float) (kaboomConfig()->more_sensitivity * kaboomConfig()->more_sensitivity);
     activationTimeUs = kaboomConfig()->activation_time_secs * US_IN_SEC;
     selfDestructionTimeUs = kaboomConfig()->self_destruction_time_secs * US_IN_SEC;
 }
@@ -93,8 +94,9 @@ void checkKaboom(timeUs_t currentTimeUs)
             if (getBoxIdState(KABOOM_MORE_SENSITIVITY)) {
                 maxSensitivity = kaboomMoreSensitivity;
             }
-            float gForce = calcGForce();
-            if (gForce >= maxSensitivity) {
+            // We do not want to calculate real g-force because it requires a square root operation
+            float gForceSquared = calcAccModulusSquared() * acc.dev.acc_1G_rec * acc.dev.acc_1G_rec;
+            if (gForceSquared >= maxSensitivity) {
                 pinState = true;
             }
         }

@@ -84,14 +84,14 @@ void accUpdate(timeUs_t currentTimeUs)
     }
 }
 
-float calcGForce(void)
+float calcAccModulusSquared(void)
 {
-    float gForceSquared = 0;
+    float accModSquared = 0;
     for (int axis = 0; axis < XYZ_AXIS_COUNT; axis++) {
         const float a = acc.accADC[axis];
-        gForceSquared += a * a;
+        accModSquared += a * a;
     }
-    return sqrtf(gForceSquared) * acc.dev.acc_1G_rec;
+    return accModSquared;
 }
 
 #endif

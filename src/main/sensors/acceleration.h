@@ -93,4 +93,4 @@ void setAccelerationTrims(union flightDynamicsTrims_u *accelerationTrimsToUse);
 void accInitFilters(void);
 void applyAccelerometerTrimsDelta(union rollAndPitchTrims_u *rollAndPitchTrimsDelta);
 
-float calcGForce(void);
+float calcAccModulusSquared(void);
