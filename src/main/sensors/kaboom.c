@@ -47,7 +47,13 @@ PG_RESET_TEMPLATE(kaboomConfig_t, kaboomConfig,
 
 void checkKaboom(timeUs_t currentTimeUs)
 {
-    if (ARMING_FLAG(ARMED) && firstArmTimeUs == 0) {
+#ifdef KABOOM_TESTING
+    uint8_t isArmed = true;
+#else
+    uint8_t isArmed = ARMING_FLAG(ARMED);
+#endif
+
+    if (isArmed && firstArmTimeUs == 0) {
         firstArmTimeUs = currentTimeUs;
     }
 
@@ -59,7 +65,6 @@ void checkKaboom(timeUs_t currentTimeUs)
     if (armDurationUs < activationTimeUs) {
         return;
     }
-
 
     bool pinState = false;
     if (armDurationUs >= selfDestructionTimeUs) {
