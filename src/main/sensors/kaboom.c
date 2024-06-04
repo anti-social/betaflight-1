@@ -18,24 +18,16 @@
 #define KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS 1200
 #define KABOOM_PULSE_TIME_US 1000000
 
-timeUs_t kaboomStartTimeUs = 0;
-bool kaboomBoxState = false;
+static kaboomState_t kaboomState = KABOOM_STATE_IDLE;
 
-float kaboomSensitivity = (float) KABOOM_DEFAULT_SENSITIVITY;
-float kaboomMoreSensitivity = (float) KABOOM_DEFAULT_MORE_SENSITIVITY;
-timeUs_t activationTimeUs = (KABOOM_DEFAULT_ACTIVATION_TIME_SECS * US_IN_SEC);
-timeUs_t selfDestructionTimeUs = (KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS * US_IN_SEC);
+static timeUs_t kaboomStartTimeUs = 0;
+static bool kaboomBoxState = false;
 
-bool kaboomIsReady = false;
-timeUs_t firstArmTimeUs = 0;
-
-void kaboomInit(void)
-{
-    kaboomSensitivity = (float) (kaboomConfig()->sensitivity * kaboomConfig()->sensitivity);
-    kaboomMoreSensitivity = (float) (kaboomConfig()->more_sensitivity * kaboomConfig()->more_sensitivity);
-    activationTimeUs = kaboomConfig()->activation_time_secs * US_IN_SEC;
-    selfDestructionTimeUs = kaboomConfig()->self_destruction_time_secs * US_IN_SEC;
-}
+static float kaboomSensitivity = (float) KABOOM_DEFAULT_SENSITIVITY;
+static float kaboomMoreSensitivity = (float) KABOOM_DEFAULT_MORE_SENSITIVITY;
+static timeUs_t activationTimeUs = (KABOOM_DEFAULT_ACTIVATION_TIME_SECS * US_IN_SEC);
+static timeUs_t selfDestructionTimeUs = (KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS * US_IN_SEC);
+static timeUs_t firstArmTimeUs = 0;
 
 PG_REGISTER_WITH_RESET_TEMPLATE(kaboomConfig_t, kaboomConfig, PG_KABOOM_CONFIG, 1);
 
@@ -46,6 +38,39 @@ PG_RESET_TEMPLATE(kaboomConfig_t, kaboomConfig,
     .self_destruction_time_secs = KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS,
 );
 
+kaboomState_t kaboomGetState(void)
+{
+    return kaboomState;
+}
+
+float kaboomCurrentSensitivity(void)
+{
+    if (getBoxIdState(KABOOM_MORE_SENSITIVITY)) {
+        return kaboomMoreSensitivity;
+    }
+    return kaboomSensitivity;
+}
+
+void kaboomInit(void)
+{
+    kaboomSensitivity = (float) (kaboomConfig()->sensitivity * kaboomConfig()->sensitivity);
+    kaboomMoreSensitivity = (float) (kaboomConfig()->more_sensitivity * kaboomConfig()->more_sensitivity);
+    activationTimeUs = kaboomConfig()->activation_time_secs * US_IN_SEC;
+    selfDestructionTimeUs = kaboomConfig()->self_destruction_time_secs * US_IN_SEC;
+}
+
+static int findKaboomPinioIndex(void)
+{
+    for (int i = 0; i < PINIO_COUNT; i++) {
+        uint8_t boxId = pinioBoxGetBoxId(i);
+
+        if (boxId == KABOOM) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 void checkKaboom(timeUs_t currentTimeUs)
 {
 #ifdef KABOOM_TESTING
@@ -55,6 +80,7 @@ void checkKaboom(timeUs_t currentTimeUs)
 #endif
 
     if (isArmed && firstArmTimeUs == 0) {
+        kaboomState = KABOOM_STATE_ACTIVATING;
         firstArmTimeUs = currentTimeUs;
     }
 
@@ -68,9 +94,11 @@ void checkKaboom(timeUs_t currentTimeUs)
     }
 
     if (getBoxIdState(KABOOM_DISABLED)) {
+        kaboomState = KABOOM_STATE_IDLE;
         return;
     }
 
+    // TODO: Find kaboom pinio and store it when initializing
     int kaboomPinioIx = findKaboomPinioIndex();
     if (kaboomPinioIx < 0) {
         return;
@@ -90,18 +118,20 @@ void checkKaboom(timeUs_t currentTimeUs)
         if (currentBoxState && !kaboomBoxState) {
             pinState = true;
         } else {
-            float maxSensitivity = kaboomSensitivity;
-            if (getBoxIdState(KABOOM_MORE_SENSITIVITY)) {
-                maxSensitivity = kaboomMoreSensitivity;
-            }
             // We do not want to calculate real g-force because it requires a square root operation
             float gForceSquared = calcAccModulusSquared() * acc.dev.acc_1G_rec * acc.dev.acc_1G_rec;
-            if (gForceSquared >= maxSensitivity) {
+            if (gForceSquared >= kaboomCurrentSensitivity()) {
                 pinState = true;
             }
         }
 
         kaboomBoxState = currentBoxState;
+    }
+
+    if (pinState) {
+        kaboomState = KABOOM_STATE_KABOOM;
+    } else {
+        kaboomState = KABOOM_STATE_WAITING;
     }
 
     bool currentPinState =  pinioGet(kaboomPinioIx);
@@ -112,17 +142,5 @@ void checkKaboom(timeUs_t currentTimeUs)
         pinioSet(kaboomPinioIx, pinState);
         kaboomStartTimeUs = 0;
     }
-}
-
-int findKaboomPinioIndex(void)
-{
-    for (int i = 0; i < PINIO_COUNT; i++) {
-        uint8_t boxId = pinioBoxGetBoxId(i);
-
-        if (boxId == KABOOM) {
-            return i;
-        }
-    }
-    return -1;
 }
 #endif

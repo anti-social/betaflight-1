@@ -203,10 +203,13 @@ osd_unittest_SRC := \
 		$(USER_DIR)/common/printf.c \
 		$(USER_DIR)/common/time.c \
 		$(USER_DIR)/common/filter.c \
-		$(USER_DIR)/fc/runtime_config.c
+		$(USER_DIR)/fc/runtime_config.c \
+
+# $(USER_DIR)/sensors/kaboom.c
 
 osd_unittest_DEFINES := \
 		USE_OSD= \
+		USE_ACC= \
 		USE_GPS= \
 		USE_RTC_TIME= \
 		USE_ADC_INTERNAL=
@@ -484,11 +487,15 @@ GTEST_DIR = ../../lib/test/gtest
 
 CC  := clang-15
 CXX := clang++-15
+ifneq ($(OSFAMILY), linux)
 ifeq ($(shell which $(CC) 2>/dev/null),)
 $(info Falling back to 'clang')
 CC  := clang
 CXX := clang++
 endif
+endif
+#CC  := gcc
+#CXX := g++
 
 OPTIMIZE = -O0
 
@@ -500,6 +507,8 @@ COMMON_FLAGS = \
 	-isystem $(GTEST_DIR)/inc \
 	-MMD -MP \
 	-pipe
+
+# -I/nix/store/547vy8v1b5g58aygf4rgjjjy07xqj85d-libcxx-12.0.1-dev/include/c++/v1
 
 CC_VERSION = $(shell $(CC) -dumpversion)
 CXX_VERSION = $(shell $(CXX) -dumpversion)

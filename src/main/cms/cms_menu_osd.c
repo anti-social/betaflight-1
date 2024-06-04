@@ -152,6 +152,7 @@ const OSD_Entry menuOsdActiveElemsEntries[] =
     {"VARIO",              OME_VISIBLE | DYNAMIC, NULL, &osdConfig_item_pos[OSD_NUMERICAL_VARIO]},
 #endif
     {"G-FORCE",            OME_VISIBLE | DYNAMIC, NULL, &osdConfig_item_pos[OSD_G_FORCE]},
+    {"KABOOM",             OME_VISIBLE | DYNAMIC, NULL, &osdConfig_item_pos[OSD_KABOOM]},
     {"MOTOR DIAGNOSTIC",   OME_VISIBLE | DYNAMIC, NULL, &osdConfig_item_pos[OSD_MOTOR_DIAG]},
 #ifdef USE_BLACKBOX
     {"LOG STATUS",         OME_VISIBLE | DYNAMIC, NULL, &osdConfig_item_pos[OSD_LOG_STATUS]},

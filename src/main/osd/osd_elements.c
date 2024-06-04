@@ -166,6 +166,7 @@
 #include "sensors/adcinternal.h"
 #include "sensors/barometer.h"
 #include "sensors/battery.h"
+#include "sensors/kaboom.h"
 #include "sensors/sensors.h"
 
 #ifdef USE_GPS_PLUS_CODES
@@ -1068,6 +1069,123 @@ static void osdElementGForce(osdElementParms_t *element)
 }
 #endif // USE_ACC
 
+#ifdef USE_ACC
+#define KABOOM_ANIMATION_FRAME_TIME_US (1000000 / OSD_FRAMERATE_DEFAULT_HZ / 2)
+
+static kaboomState_t prevKaboomState = KABOOM_STATE_IDLE;
+static timeUs_t kaboomAnimationStartTimeUs = 0;
+struct kaboomLetterOffset_s {
+    uint8_t x;
+    uint8_t y;
+};
+static struct kaboomLetterOffset_s kaboomAnimationFrames[][3] = {
+    { { .x = 0, .y = 1 }, { .x = 1, .y = 1}, { .x = 1, .y = 1} },
+    { { .x = 0, .y = 2 }, { .x = 2, .y = 2}, { .x = 2, .y = 1} },
+    { { .x = 1, .y = 3 }, { .x = 3, .y = 3}, { .x = 3, .y = 2} },
+    { { .x = 1, .y = 4 }, { .x = 4, .y = 3}, { .x = 4, .y = 2} },
+    { { .x = 2, .y = 6 }, { .x = 5, .y = 4}, { .x = 5, .y = 2} },
+    { { .x = 2, .y = 7 }, { .x = 6, .y = 5}, { .x = 7, .y = 3} },
+    { { .x = 3, .y = 8 }, { .x = 7, .y = 6}, { .x = 8, .y = 3} },
+    { { .x = 4, .y = 9 }, { .x = 8, .y = 6}, { .x = 9, .y = 3} },
+    { { .x = 5, .y = 10 }, { .x = 9, .y = 7}, { .x = 11, .y = 4} },
+    { { .x = 6, .y = 11 }, { .x = 10, .y = 8}, { .x = 12, .y = 5} },
+};
+static int kaboomAnimationFramesCount = sizeof(kaboomAnimationFrames) / sizeof(kaboomAnimationFrames[0]);
+
+static bool kaboomIsAnimated(void)
+{
+    return kaboomAnimationStartTimeUs != 0;
+}
+
+static void renderKaboomLetter(uint8_t frame, osdElementParms_t *element, char c, uint8_t n, bool reverse, uint8_t basePosX)
+{
+    struct kaboomLetterOffset_s offset = kaboomAnimationFrames[frame][n];
+    uint8_t posx;
+    if (reverse) {
+        posx = basePosX - offset.x;
+    } else {
+        posx = basePosX + offset.x;
+    }
+    uint8_t posy = element->elemPosY - offset.y;
+    if (posx < OSD_CAMERA_FRAME_MAX_WIDTH && posy < OSD_CAMERA_FRAME_MAX_HEIGHT) {
+        osdDisplayWriteChar(element, posx, posy, DISPLAYPORT_SEVERITY_NORMAL, c);
+    }
+}
+
+static void renderKaboomAnimation(osdElementParms_t *element)
+{
+    if (!kaboomIsAnimated()) {
+        kaboomAnimationStartTimeUs = micros();
+    }
+
+    uint8_t animationFrameNum = (micros() - kaboomAnimationStartTimeUs) / KABOOM_ANIMATION_FRAME_TIME_US;
+
+    element->drawElement = false;
+
+    if (element->elemPosY + animationFrameNum < OSD_CAMERA_FRAME_MAX_HEIGHT) {
+        strcpy(element->buff, "KABOOM");
+        element->elemPosY += animationFrameNum;
+        osdDisplayWrite(element, element->elemPosX, element->elemPosY, DISPLAYPORT_SEVERITY_NORMAL, element->buff);
+        return;
+    }
+
+    uint8_t explodeFrameNum = (animationFrameNum - (OSD_CAMERA_FRAME_MAX_HEIGHT - element->elemPosY)) / 2;
+    if (explodeFrameNum >= kaboomAnimationFramesCount) {
+        kaboomAnimationStartTimeUs = 0;
+        return;
+    }
+    element->elemPosY = OSD_CAMERA_FRAME_MAX_HEIGHT - 1;
+    renderKaboomLetter(explodeFrameNum, element, 'K', 2, true, element->elemPosX);
+    renderKaboomLetter(explodeFrameNum, element, 'A', 1, true, element->elemPosX + 1);
+    renderKaboomLetter(explodeFrameNum, element, 'B', 0, true, element->elemPosX + 2);
+    renderKaboomLetter(explodeFrameNum, element, 'O', 0, false, element->elemPosX + 3);
+    renderKaboomLetter(explodeFrameNum, element, 'O', 1, false, element->elemPosX + 4);
+    renderKaboomLetter(explodeFrameNum, element, 'M', 2, false, element->elemPosX + 5);
+
+    if (explodeFrameNum + 1 >= kaboomAnimationFramesCount) {
+        kaboomAnimationStartTimeUs = 0;
+        return;
+    }
+}
+
+static void osdElementKaboom(osdElementParms_t *element)
+{
+    kaboomState_t kaboomState = kaboomGetState();
+    if (prevKaboomState == KABOOM_STATE_ACTIVATING && kaboomState != prevKaboomState) {
+        CLR_BLINK(element->item);
+    }
+
+    if (kaboomIsAnimated()) {
+        renderKaboomAnimation(element);
+        return;
+    }
+
+    switch (kaboomState) {
+    case KABOOM_STATE_IDLE:
+        break;
+    case KABOOM_STATE_ACTIVATING:
+    case KABOOM_STATE_WAITING:
+        if (kaboomState == KABOOM_STATE_ACTIVATING) {
+            SET_BLINK(element->item);
+        }
+        strcpy(element->buff, "KABOOM/");
+        float gForce = sqrtf(kaboomCurrentSensitivity());
+        osdPrintFloat(element->buff + 7, SYM_NONE, gForce, "", 1, true, 'G');
+        osdDisplayWrite(element, element->elemPosX, element->elemPosY, DISPLAYPORT_SEVERITY_NORMAL, element->buff);
+        element->drawElement = false;
+        break;
+    case KABOOM_STATE_KABOOM:
+        renderKaboomAnimation(element);
+        break;
+    default:
+        strcpy(element->buff, "???");
+        break;
+    }
+
+    prevKaboomState = kaboomState;
+}
+#endif // USE_ACC
+
 #ifdef USE_GPS
 static void osdElementGpsFlightDistance(osdElementParms_t *element)
 {
@@ -1945,6 +2063,9 @@ const osdElementDrawFn osdElementDrawFunction[OSD_ITEM_COUNT] = {
 #ifdef USE_ACC
     [OSD_G_FORCE]                 = osdElementGForce,
 #endif
+#ifdef USE_ACC
+    [OSD_KABOOM]                  = osdElementKaboom,
+#endif
     [OSD_MOTOR_DIAG]              = osdElementMotorDiagnostics,
 #ifdef USE_BLACKBOX
     [OSD_LOG_STATUS]              = osdElementLogStatus,
@@ -2043,6 +2164,7 @@ void osdAddActiveElements(void)
         osdAddActiveElement(OSD_ARTIFICIAL_HORIZON);
         osdAddActiveElement(OSD_G_FORCE);
         osdAddActiveElement(OSD_UP_DOWN_REFERENCE);
+        osdAddActiveElement(OSD_KABOOM);
     }
 #endif
 
@@ -2458,6 +2580,7 @@ bool osdElementsNeedAccelerometer(void)
            osdElementIsActive(OSD_PITCH_ANGLE) ||
            osdElementIsActive(OSD_ROLL_ANGLE) ||
            osdElementIsActive(OSD_G_FORCE) ||
+           osdElementIsActive(OSD_KABOOM) ||
            osdElementIsActive(OSD_FLIP_ARROW) ||
            osdElementIsActive(OSD_UP_DOWN_REFERENCE);
 }

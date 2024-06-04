@@ -61,6 +61,7 @@ extern "C" {
 
     #include "sensors/acceleration.h"
     #include "sensors/battery.h"
+    #include "sensors/kaboom.h"
 
     #include "rx/rx.h"
 
@@ -106,6 +107,8 @@ extern "C" {
     int32_t simulationVerticalSpeed;
     uint16_t simulationCoreTemperature;
     bool simulationGpsHealthy;
+    kaboomState_t simulationKaboomState = KABOOM_STATE_IDLE;
+    float simulationKaboomSensitivity = 81.0;
 }
 
 uint32_t simulationFeatureFlags = FEATURE_GPS;
@@ -1197,7 +1200,7 @@ TEST_F(OsdTest, TestGpsElements)
 
     sensorsSet(SENSOR_GPS);
     osdAnalyzeActiveElements();
-    
+
     // when
     simulationGpsHealthy = false;
     gpsSol.numSat = 0;
@@ -1285,6 +1288,159 @@ TEST_F(OsdTest, TestHdPositioning)
     // then
     displayPortTestBufferSubstring(53, 0, "%c99", SYM_RSSI);
     displayPortTestBufferSubstring(53, 1, "  0.00%c", SYM_AMP);
+}
+
+TEST_F(OsdTest, TestElementKaboom)
+{
+    // given
+    osdElementConfigMutable()->item_pos[OSD_KABOOM] = OSD_POS(3, 11) | OSD_PROFILE_1_FLAG;
+
+    sensorsSet(SENSOR_ACC);
+
+    osdAnalyzeActiveElements();
+
+    // when
+    simulationKaboomState = KABOOM_STATE_IDLE;
+    displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+    osdRefresh();
+    // then
+    displayPortTestBufferIsEmpty();
+
+    // when
+    simulationKaboomState = KABOOM_STATE_ACTIVATING;
+    simulationTime += 1000000;
+    simulationTime -= simulationTime % 1000000;
+    // then it should blink
+    timeUs_t startTime = simulationTime;
+    for (int i = 0; i < 15; i++) {
+        // Blinking should happen at 2Hz
+        simulationTime = startTime + i * 0.25e6;
+        displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+        osdRefresh();
+
+        if (i % 2 == 1) {
+            displayPortTestBufferSubstring(3, 11, "KABOOM/9.0G");
+        } else {
+            displayPortTestBufferIsEmpty();
+        }
+    }
+
+    // when
+    simulationKaboomState = KABOOM_STATE_WAITING;
+    simulationTime += 1000000;
+    simulationTime -= simulationTime % 1000000;
+    // then it should not blink
+    startTime = simulationTime;
+    for (int i = 0; i < 15; i++) {
+        simulationTime = startTime + i * 0.25e6;
+        displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+        osdRefresh();
+        displayPortTestBufferSubstring(3, 11, "KABOOM/9.0G");
+    }
+
+    // when
+    simulationKaboomSensitivity = 4.0;
+    displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+    osdRefresh();
+    // then
+    displayPortTestBufferSubstring(3, 11, "KABOOM/2.0G");
+
+    // when
+    simulationKaboomState = KABOOM_STATE_KABOOM;
+    simulationTime -= (simulationTime + 1000000) % 1000000 - 1000000;
+    startTime = simulationTime;
+    displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+    osdRefresh();
+    // then
+    displayPortTestBufferSubstring(3, 11, "KABOOM ");
+
+    // when
+    simulationTime = startTime + 1 * 0.084e6;
+    displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+    osdRefresh();
+    // then
+    displayPortTestBufferSubstring(3, 13, "KABOOM ");
+
+    // when
+    simulationTime = startTime + 2 * 0.083333e6;
+    displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+    osdRefresh();
+    // then
+    displayPortTestBufferSubstring(3, 15, "KABOOM ");
+
+    // when
+    simulationTime = startTime + 3 * 0.083333e6;
+    displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+    osdRefresh();
+    // then
+    displayPortTestBufferSubstring(0, 14, "  KA BO OM ");
+
+    // when
+    simulationTime = startTime + 4 * 0.083333e6;
+    displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+    osdRefresh();
+    // then
+    displayPortTestBufferSubstring(0, 13, "  A  BO  O  ");
+    displayPortTestBufferSubstring(0, 14, " K        M ");
+
+    // when
+    simulationTime = startTime + 5 * 0.083333e6;
+    displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+    osdRefresh();
+    // then
+    displayPortTestBufferSubstring(0, 12, " A  B  O  O  ");
+    displayPortTestBufferSubstring(0, 13, "K          M ");
+
+    // when
+    simulationTime = startTime + 6 * 0.083333e6;
+    displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+    osdRefresh();
+    // then
+    displayPortTestBufferSubstring(0, 11, "    B  O      ");
+    displayPortTestBufferSubstring(0, 12, "A          O  ");
+    displayPortTestBufferSubstring(0, 13, "            M ");
+
+    // when
+    simulationTime = startTime + 7 * 0.083333e6;
+    displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+    osdRefresh();
+    // then
+    displayPortTestBufferSubstring(0, 9,  "   B    O      ");
+    displayPortTestBufferSubstring(0, 10, "               ");
+    displayPortTestBufferSubstring(0, 11, "            O  ");
+    displayPortTestBufferSubstring(0, 12, "               ");
+    displayPortTestBufferSubstring(0, 13, "             M ");
+
+    // when
+    simulationTime = startTime + 8 * 0.083333e6;
+    displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+    osdRefresh();
+    // then
+    displayPortTestBufferSubstring(0, 8,  "   B    O        ");
+    displayPortTestBufferSubstring(0, 11, "                 ");
+    displayPortTestBufferSubstring(0, 10, "             O   ");
+    displayPortTestBufferSubstring(0, 11, "                 ");
+    displayPortTestBufferSubstring(0, 12, "               M ");
+
+    // skip some frames
+    for (int i = 9; i <= 11; i++) {
+        simulationTime = startTime + i * 0.083333e6;
+        displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+        osdRefresh();
+    }
+
+    // when
+    simulationTime = startTime + 12 * 0.083333e6;
+    displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+    osdRefresh();
+    // then
+    displayPortTestBufferSubstring(0, 4,  "            O         ");
+    displayPortTestBufferSubstring(0, 5,  "                      ");
+    displayPortTestBufferSubstring(0, 6,  "                      ");
+    displayPortTestBufferSubstring(0, 7,  "                 O    ");
+    displayPortTestBufferSubstring(0, 8,  "                      ");
+    displayPortTestBufferSubstring(0, 9,  "                      ");
+    displayPortTestBufferSubstring(0, 10, "                    M ");
 }
 
 // STUBS
@@ -1411,4 +1567,7 @@ extern "C" {
     void schedulerIgnoreTaskExecTime(void) { }
     bool schedulerGetIgnoreTaskExecTime() { return false; }
     void schedulerSetNextStateTime(timeDelta_t) {}
+    float calcAccModulusSquared(void) { return 2.0; }
+    kaboomState_t kaboomGetState(void) { return simulationKaboomState; }
+    float kaboomCurrentSensitivity(void) { return simulationKaboomSensitivity; }
 }
