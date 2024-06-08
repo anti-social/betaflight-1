@@ -23,10 +23,11 @@ static kaboomState_t kaboomState = KABOOM_STATE_IDLE;
 static timeUs_t kaboomStartTimeUs = 0;
 static bool kaboomBoxState = false;
 
-static float kaboomSensitivity = (float) KABOOM_DEFAULT_SENSITIVITY;
-static float kaboomMoreSensitivity = (float) KABOOM_DEFAULT_MORE_SENSITIVITY;
+static float sensitivity = (float) KABOOM_DEFAULT_SENSITIVITY;
+static float moreSensitivity = (float) KABOOM_DEFAULT_MORE_SENSITIVITY;
 static timeUs_t activationTimeUs = (KABOOM_DEFAULT_ACTIVATION_TIME_SECS * US_IN_SEC);
 static timeUs_t selfDestructionTimeUs = (KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS * US_IN_SEC);
+static bool startOnBoot = false;
 static timeUs_t firstArmTimeUs = 0;
 
 PG_REGISTER_WITH_RESET_TEMPLATE(kaboomConfig_t, kaboomConfig, PG_KABOOM_CONFIG, 1);
@@ -46,17 +47,18 @@ kaboomState_t kaboomGetState(void)
 float kaboomCurrentSensitivity(void)
 {
     if (getBoxIdState(KABOOM_MORE_SENSITIVITY)) {
-        return kaboomMoreSensitivity;
+        return moreSensitivity;
     }
-    return kaboomSensitivity;
+    return sensitivity;
 }
 
 void kaboomInit(void)
 {
-    kaboomSensitivity = (float) (kaboomConfig()->sensitivity * kaboomConfig()->sensitivity);
-    kaboomMoreSensitivity = (float) (kaboomConfig()->more_sensitivity * kaboomConfig()->more_sensitivity);
+    sensitivity = (float) (kaboomConfig()->sensitivity * kaboomConfig()->sensitivity);
+    moreSensitivity = (float) (kaboomConfig()->more_sensitivity * kaboomConfig()->more_sensitivity);
     activationTimeUs = kaboomConfig()->activation_time_secs * US_IN_SEC;
     selfDestructionTimeUs = kaboomConfig()->self_destruction_time_secs * US_IN_SEC;
+    startOnBoot = kaboomConfig()->start_on_boot;
 }
 
 static int findKaboomPinioIndex(void)
@@ -73,11 +75,12 @@ static int findKaboomPinioIndex(void)
 
 void checkKaboom(timeUs_t currentTimeUs)
 {
-#ifdef KABOOM_TESTING
-    uint8_t isArmed = true;
-#else
-    uint8_t isArmed = ARMING_FLAG(ARMED);
-#endif
+    uint8_t isArmed;
+    if (startOnBoot) {
+        isArmed = true;
+    } else {
+        isArmed = ARMING_FLAG(ARMED);
+    }
 
     if (isArmed && firstArmTimeUs == 0) {
         kaboomState = KABOOM_STATE_ACTIVATING;
