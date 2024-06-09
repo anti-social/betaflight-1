@@ -27,8 +27,7 @@ static float sensitivity = (float) KABOOM_DEFAULT_SENSITIVITY;
 static float moreSensitivity = (float) KABOOM_DEFAULT_MORE_SENSITIVITY;
 static timeUs_t activationTimeUs = (KABOOM_DEFAULT_ACTIVATION_TIME_SECS * US_IN_SEC);
 static timeUs_t selfDestructionTimeUs = (KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS * US_IN_SEC);
-static bool startOnBoot = false;
-static timeUs_t firstArmTimeUs = 0;
+static timeUs_t startTimeUs = 0;
 
 PG_REGISTER_WITH_RESET_TEMPLATE(kaboomConfig_t, kaboomConfig, PG_KABOOM_CONFIG, 1);
 
@@ -58,7 +57,6 @@ void kaboomInit(void)
     moreSensitivity = (float) (kaboomConfig()->more_sensitivity * kaboomConfig()->more_sensitivity);
     activationTimeUs = kaboomConfig()->activation_time_secs * US_IN_SEC;
     selfDestructionTimeUs = kaboomConfig()->self_destruction_time_secs * US_IN_SEC;
-    startOnBoot = kaboomConfig()->start_on_boot;
 }
 
 static int findKaboomPinioIndex(void)
@@ -73,25 +71,28 @@ static int findKaboomPinioIndex(void)
     return -1;
 }
 
+static uint8_t numKaboomBoxActivated = 0;
+
 void checkKaboom(timeUs_t currentTimeUs)
 {
-    uint8_t isArmed;
-    if (startOnBoot) {
-        isArmed = true;
-    } else {
-        isArmed = ARMING_FLAG(ARMED);
+    bool currentKaboomBoxState = getBoxIdState(KABOOM);
+    if (currentKaboomBoxState && !kaboomBoxState) {
+        numKaboomBoxActivated++;
     }
+    kaboomBoxState = currentKaboomBoxState;
 
-    if (isArmed && firstArmTimeUs == 0) {
+    bool isStarted = ARMING_FLAG(ARMED) || numKaboomBoxActivated >= 3;
+
+    if (isStarted && startTimeUs == 0) {
         kaboomState = KABOOM_STATE_ACTIVATING;
-        firstArmTimeUs = currentTimeUs;
+        startTimeUs = currentTimeUs;
     }
 
-    if (firstArmTimeUs == 0) {
+    if (startTimeUs == 0) {
         return;
     }
 
-    timeUs_t armDurationUs = currentTimeUs - firstArmTimeUs;
+    timeUs_t armDurationUs = currentTimeUs - startTimeUs;
     if (armDurationUs < activationTimeUs) {
         return;
     }
@@ -117,8 +118,7 @@ void checkKaboom(timeUs_t currentTimeUs)
     if (kaboomStartTimeUs != 0 && currentTimeUs - kaboomStartTimeUs < KABOOM_PULSE_TIME_US) {
         pinState = true;
     } else {
-        bool currentBoxState = getBoxIdState(KABOOM);
-        if (currentBoxState && !kaboomBoxState) {
+        if (kaboomBoxState) {
             pinState = true;
         } else {
             // We do not want to calculate real g-force because it requires a square root operation
@@ -127,8 +127,6 @@ void checkKaboom(timeUs_t currentTimeUs)
                 pinState = true;
             }
         }
-
-        kaboomBoxState = currentBoxState;
     }
 
     if (pinState) {
