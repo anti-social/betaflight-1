@@ -17,17 +17,19 @@
 #define KABOOM_DEFAULT_ACTIVATION_TIME_SECS 60
 #define KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS 1200
 #define KABOOM_PULSE_TIME_US 1000000
+#define KABOOM_SELF_DESTRUCTION_REPEAT_INTERVAL_US (KABOOM_PULSE_TIME_US * 5)
+
+// If a user switches kaboom box 3 times in a 5 second interval
+// we perceive this action as a start of an activation
+#define KABOOM_MANUAL_ACTIVATION_REPEAT 3
+#define KABOOM_MANUAL_ACTIVATION_TIME_US 5000000
 
 static kaboomState_t kaboomState = KABOOM_STATE_IDLE;
-
-static timeUs_t kaboomStartTimeUs = 0;
-static bool kaboomBoxState = false;
 
 static float sensitivity = (float) KABOOM_DEFAULT_SENSITIVITY;
 static float moreSensitivity = (float) KABOOM_DEFAULT_MORE_SENSITIVITY;
 static timeUs_t activationTimeUs = (KABOOM_DEFAULT_ACTIVATION_TIME_SECS * US_IN_SEC);
 static timeUs_t selfDestructionTimeUs = (KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS * US_IN_SEC);
-static timeUs_t startTimeUs = 0;
 
 PG_REGISTER_WITH_RESET_TEMPLATE(kaboomConfig_t, kaboomConfig, PG_KABOOM_CONFIG, 1);
 
@@ -71,28 +73,42 @@ static int findKaboomPinioIndex(void)
     return -1;
 }
 
-static uint8_t numKaboomBoxActivated = 0;
-
 void checkKaboom(timeUs_t currentTimeUs)
 {
+    static bool kaboomBoxState = false;
+    static timeUs_t kaboomStartTimeUs = 0;
+
+    // Variables to track a manual activation
+    static uint8_t numKaboomBoxActivated = 0;
+    static timeUs_t kaboomBoxActivatedTimeUs = 0;
+
+    static timeUs_t armTimeUs = 0;
+
     bool currentKaboomBoxState = getBoxIdState(KABOOM);
+
     if (currentKaboomBoxState && !kaboomBoxState) {
+        if (numKaboomBoxActivated == 0) {
+            kaboomBoxActivatedTimeUs = currentTimeUs;
+        } else if (currentTimeUs - kaboomBoxActivatedTimeUs > KABOOM_MANUAL_ACTIVATION_TIME_US) {
+            numKaboomBoxActivated = 0;
+            kaboomBoxActivatedTimeUs = currentTimeUs;
+        }
         numKaboomBoxActivated++;
     }
     kaboomBoxState = currentKaboomBoxState;
 
-    bool isStarted = ARMING_FLAG(ARMED) || numKaboomBoxActivated >= 3;
+    bool isArmed = ARMING_FLAG(ARMED) || numKaboomBoxActivated >= KABOOM_MANUAL_ACTIVATION_REPEAT;
 
-    if (isStarted && startTimeUs == 0) {
+    if (isArmed && armTimeUs == 0) {
         kaboomState = KABOOM_STATE_ACTIVATING;
-        startTimeUs = currentTimeUs;
+        armTimeUs = currentTimeUs;
     }
 
-    if (startTimeUs == 0) {
+    if (armTimeUs == 0) {
         return;
     }
 
-    timeUs_t armDurationUs = currentTimeUs - startTimeUs;
+    timeUs_t armDurationUs = currentTimeUs - armTimeUs;
     if (armDurationUs < activationTimeUs) {
         return;
     }
@@ -110,7 +126,7 @@ void checkKaboom(timeUs_t currentTimeUs)
 
     bool pinState = false;
     if (armDurationUs >= selfDestructionTimeUs) {
-        if ((armDurationUs - selfDestructionTimeUs) % (KABOOM_PULSE_TIME_US * 5) < KABOOM_PULSE_TIME_US) {
+        if ((armDurationUs - selfDestructionTimeUs) % KABOOM_SELF_DESTRUCTION_REPEAT_INTERVAL_US < KABOOM_PULSE_TIME_US) {
             pinState = true;
         }
     }
