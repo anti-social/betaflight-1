@@ -1,5 +1,3 @@
-// #include "unittest_macros.h"
-// #include "unittest_displayport.h"
 #include "gtest/gtest.h"
 
 extern "C" {
