@@ -21,7 +21,6 @@ typedef struct kaboomConfig_s {
     uint8_t more_sensitivity;
     uint16_t activation_time_secs;
     uint16_t self_destruction_time_secs;
-    uint8_t start_on_boot;
 } kaboomConfig_t;
 
 PG_DECLARE(kaboomConfig_t, kaboomConfig);

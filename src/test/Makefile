@@ -205,14 +205,25 @@ osd_unittest_SRC := \
 		$(USER_DIR)/common/filter.c \
 		$(USER_DIR)/fc/runtime_config.c \
 
-# $(USER_DIR)/sensors/kaboom.c
-
 osd_unittest_DEFINES := \
 		USE_OSD= \
 		USE_ACC= \
 		USE_GPS= \
 		USE_RTC_TIME= \
 		USE_ADC_INTERNAL=
+
+kaboom_unittest_SRC := \
+		$(USER_DIR)/common/filter.c \
+		$(USER_DIR)/common/maths.c \
+		$(USER_DIR)/drivers/accgyro/accgyro_virtual.c \
+		$(USER_DIR)/fc/runtime_config.c \
+		$(USER_DIR)/sensors/acceleration.c \
+		$(USER_DIR)/sensors/boardalignment.c \
+		$(USER_DIR)/sensors/kaboom.c
+
+kaboom_unittest_DEFINES := \
+		USE_ACC= \
+		USE_VIRTUAL_ACC= \
 
 link_quality_unittest_SRC := \
 		$(USER_DIR)/osd/osd.c \
@@ -574,7 +585,11 @@ CXX_FLAGS = $(COMMON_FLAGS) \
 
 # Compiler flags for coverage instrumentation
 ifdef USE_COVERAGE
+ifdef USE_LLVM_COVERAGE
+COVERAGE_FLAGS := -fprofile-instr-generate -fcoverage-mapping
+else
 COVERAGE_FLAGS := --coverage
+endif
 endif
 
 C_FLAGS   += $(COVERAGE_FLAGS)
