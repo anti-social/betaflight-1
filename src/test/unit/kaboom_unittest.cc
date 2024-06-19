@@ -294,17 +294,35 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     kaboomInit();
     // then
     EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIsDisabled());
 
-    timeUs_t simulationTimeUs = toWaitingState();
+    timeUs_t simulationTimeUs = 0;
+
+    // when
+    ENABLE_ARMING_FLAG(ARMED);
+    simulationTimeUs += 1000;
+    checkKaboom(simulationTimeUs);
+    // then
+    EXPECT_EQ(KABOOM_STATE_ACTIVATING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIsDisabled());
+
+    // when
+    simulationKaboomDisabledBoxState = true;
+    checkKaboom(simulationTimeUs);
+    // then
+    EXPECT_EQ(KABOOM_STATE_ACTIVATING, kaboomGetState());
+    EXPECT_EQ(true, kaboomIsDisabled());
 
     // when
     acc.accADC[0] = 5.0;
     acc.accADC[1] = 0.0;
     acc.accADC[2] = 0.0;
     simulationKaboomDisabledBoxState = true;
+    simulationTimeUs += 60000000;
     checkKaboom(simulationTimeUs);
     // then
-    EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
+    EXPECT_EQ(true, kaboomIsDisabled());
 
     // when
     acc.accADC[0] = 2.0;
@@ -313,31 +331,36 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     simulationKaboomMoreSensitivityBoxState = true;
     checkKaboom(simulationTimeUs);
     // then
-    EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
+    EXPECT_EQ(true, kaboomIsDisabled());
 
     // when
     simulationKaboomBoxState = true;
     checkKaboom(simulationTimeUs);
     // then
-    EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
+    EXPECT_EQ(true, kaboomIsDisabled());
 
     // when
     simulationKaboomDisabledBoxState = false;
     checkKaboom(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
+    EXPECT_EQ(false, kaboomIsDisabled());
 
     // when
     simulationTimeUs += 500000;
     checkKaboom(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
+    EXPECT_EQ(false, kaboomIsDisabled());
 
     // when
     simulationKaboomDisabledBoxState = true;
     checkKaboom(simulationTimeUs);
     // then
-    EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
+    EXPECT_EQ(true, kaboomIsDisabled());
 }
 
 // STUBS

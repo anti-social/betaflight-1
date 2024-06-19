@@ -32,6 +32,7 @@ static int kaboomPinioIx = -1;
 
 // Runtime variables
 static kaboomState_t kaboomState = KABOOM_STATE_IDLE;
+static bool isDisabled = false;
 static bool prevKaboomBoxState = false;
 static timeUs_t kaboomStartTimeUs = 0;
 
@@ -54,6 +55,11 @@ PG_RESET_TEMPLATE(kaboomConfig_t, kaboomConfig,
 kaboomState_t kaboomGetState(void)
 {
     return kaboomState;
+}
+
+bool kaboomIsDisabled(void)
+{
+    return isDisabled;
 }
 
 float kaboomCurrentSensitivity(void)
@@ -101,6 +107,8 @@ void checkKaboom(timeUs_t currentTimeUs)
 
     bool kaboomBoxState = getBoxIdState(KABOOM);
 
+    isDisabled = getBoxIdState(KABOOM_DISABLED);
+
     if (kaboomBoxState && !prevKaboomBoxState) {
         if (numKaboomBoxActivated == 0) {
             kaboomBoxActivatedTimeUs = currentTimeUs;
@@ -127,11 +135,9 @@ void checkKaboom(timeUs_t currentTimeUs)
         goto exit;
     }
 
-    if (getBoxIdState(KABOOM_DISABLED)) {
-        kaboomState = KABOOM_STATE_IDLE;
-    } else {
-        kaboomState = KABOOM_STATE_WAITING;
+    kaboomState = KABOOM_STATE_WAITING;
 
+    if (!isDisabled) {
         if (armDurationUs >= selfDestructionTimeUs) {
             if ((armDurationUs - selfDestructionTimeUs) % KABOOM_SELF_DESTRUCTION_REPEAT_INTERVAL_US < KABOOM_PULSE_TIME_US) {
                 kaboomState = KABOOM_STATE_KABOOM;

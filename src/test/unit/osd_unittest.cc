@@ -108,6 +108,7 @@ extern "C" {
     uint16_t simulationCoreTemperature;
     bool simulationGpsHealthy;
     kaboomState_t simulationKaboomState = KABOOM_STATE_IDLE;
+    bool simulationKaboomIsDisabled = false;
     float simulationKaboomSensitivity = 81.0;
 }
 
@@ -1313,13 +1314,21 @@ TEST_F(OsdTest, TestElementKaboom)
     // then it should blink
     timeUs_t startTime = simulationTime;
     for (int i = 0; i < 15; i++) {
+        if (i == 10) {
+            simulationKaboomIsDisabled = true;
+        }
+
         // Blinking should happen at 2Hz
         simulationTime = startTime + i * 0.25e6;
         displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
         osdRefresh();
 
         if (i % 2 == 1) {
-            displayPortTestBufferSubstring(3, 11, "KABOOM/9.0G");
+            if (i < 10) {
+                displayPortTestBufferSubstring(3, 11, "KABOOM/9.0G ");
+            } else {
+                displayPortTestBufferSubstring(3, 11, "KABOOM ");
+            }
         } else {
             displayPortTestBufferIsEmpty();
         }
@@ -1327,23 +1336,33 @@ TEST_F(OsdTest, TestElementKaboom)
 
     // when
     simulationKaboomState = KABOOM_STATE_WAITING;
+    simulationKaboomIsDisabled = false;
     simulationTime += 1000000;
     simulationTime -= simulationTime % 1000000;
     // then it should not blink
     startTime = simulationTime;
     for (int i = 0; i < 15; i++) {
+        if (i == 10) {
+            simulationKaboomIsDisabled = true;
+        }
+
         simulationTime = startTime + i * 0.25e6;
         displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
         osdRefresh();
-        displayPortTestBufferSubstring(3, 11, "KABOOM/9.0G");
+        if (i < 10) {
+            displayPortTestBufferSubstring(3, 11, "KABOOM/9.0G ");
+        } else {
+            displayPortTestBufferSubstring(3, 11, "KABOOM ");
+        }
     }
 
     // when
     simulationKaboomSensitivity = 4.0;
+    simulationKaboomIsDisabled = false;
     displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
     osdRefresh();
     // then
-    displayPortTestBufferSubstring(3, 11, "KABOOM/2.0G");
+    displayPortTestBufferSubstring(3, 11, "KABOOM/2.0G ");
 
     // when
     simulationKaboomState = KABOOM_STATE_KABOOM;
@@ -1569,5 +1588,6 @@ extern "C" {
     void schedulerSetNextStateTime(timeDelta_t) {}
     float calcAccModulusSquared(void) { return 2.0; }
     kaboomState_t kaboomGetState(void) { return simulationKaboomState; }
+    bool kaboomIsDisabled(void) { return simulationKaboomIsDisabled; }
     float kaboomCurrentSensitivity(void) { return simulationKaboomSensitivity; }
 }

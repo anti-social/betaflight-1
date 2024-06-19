@@ -11,6 +11,7 @@ typedef enum kaboomState_e {
 } kaboomState_t;
 
 kaboomState_t kaboomGetState(void);
+bool kaboomIsDisabled(void);
 float kaboomCurrentSensitivity(void);
 void kaboomInit(void);
 void checkKaboom(timeUs_t currentTimeUs);

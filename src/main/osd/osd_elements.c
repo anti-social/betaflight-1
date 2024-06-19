@@ -1070,6 +1070,8 @@ static void osdElementGForce(osdElementParms_t *element)
 #endif // USE_ACC
 
 #ifdef USE_ACC
+#define KABOOM_STR "KABOOM"
+#define KABOOM_STR_LEN (sizeof(KABOOM_STR) - 1)
 #define KABOOM_ANIMATION_FRAME_TIME_US (1000000 / OSD_FRAMERATE_DEFAULT_HZ / 2)
 
 static kaboomState_t prevKaboomState = KABOOM_STATE_IDLE;
@@ -1168,17 +1170,14 @@ static void osdElementKaboom(osdElementParms_t *element)
         if (kaboomState == KABOOM_STATE_ACTIVATING) {
             SET_BLINK(element->item);
         }
-        strcpy(element->buff, "KABOOM/");
-        float gForce = sqrtf(kaboomCurrentSensitivity());
-        osdPrintFloat(element->buff + 7, SYM_NONE, gForce, "", 1, true, 'G');
-        osdDisplayWrite(element, element->elemPosX, element->elemPosY, DISPLAYPORT_SEVERITY_NORMAL, element->buff);
-        element->drawElement = false;
+        strcpy(element->buff, KABOOM_STR);
+        if (!kaboomIsDisabled()) {
+            float gForce = sqrtf(kaboomCurrentSensitivity());
+            osdPrintFloat(element->buff + KABOOM_STR_LEN, '/', gForce, "", 1, true, 'G');
+        }
         break;
     case KABOOM_STATE_KABOOM:
         renderKaboomAnimation(element);
-        break;
-    default:
-        strcpy(element->buff, "???");
         break;
     }
 
