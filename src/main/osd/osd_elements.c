@@ -1065,8 +1065,7 @@ static void osdElementReadyMode(osdElementParms_t *element)
 #ifdef USE_ACC
 static void osdElementGForce(osdElementParms_t *element)
 {
-    float maxGForce = sqrtf(kaboomGetMaxGForceSquared());
-    osdPrintFloat(element->buff, SYM_NONE, maxGForce, "", 1, true, 'G');
+    osdPrintFloat(element->buff, SYM_NONE, osdGForce, "", 1, true, 'G');
 
 }
 #endif // USE_ACC
@@ -1174,8 +1173,7 @@ static void osdElementKaboom(osdElementParms_t *element)
         }
         strcpy(element->buff, KABOOM_STR);
         if (!kaboomIsDisabled()) {
-            float gForce = sqrtf(kaboomCurrentSensitivity());
-            osdPrintFloat(element->buff + KABOOM_STR_LEN, '/', gForce, "", 1, true, 'G');
+            osdPrintFloat(element->buff + KABOOM_STR_LEN, '/', kaboomCurrentGForce(), "", 1, true, 'G');
         }
         break;
     case KABOOM_STATE_KABOOM:

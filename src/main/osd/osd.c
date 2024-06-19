@@ -96,6 +96,7 @@
 
 #include "sensors/acceleration.h"
 #include "sensors/battery.h"
+#include "sensors/kaboom.h"
 #include "sensors/sensors.h"
 
 #ifdef USE_HARDWARE_REVISION_DETECTION
@@ -1313,7 +1314,7 @@ void osdProcessStats3(void)
     if (sensors(SENSOR_ACC)
        && (VISIBLE(osdElementConfig()->item_pos[OSD_G_FORCE]) || osdStatGetState(OSD_STAT_MAX_G_FORCE))) {
         // only calculate the G force if the element is visible or the stat is enabled
-        osdGForce = sqrtf(calcAccModulusSquared()) * acc.dev.acc_1G_rec;
+        osdGForce = sqrtf(kaboomGetMaxGForceSquared()) * acc.dev.acc_1G_rec;
     }
 #endif
 }

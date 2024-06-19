@@ -1,3 +1,5 @@
+#include <math.h>
+
 #include "fc/runtime_config.h"
 
 #include "io/piniobox.h"
@@ -31,8 +33,11 @@ static timeUs_t selfDestructionTimeUs = (KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SE
 static int kaboomPinioIx = -1;
 
 // G-Force measures to display maximum value for the last second period
-static float gForceSquaredMeasures[KABOOM_TASK_HZ] = {0.0};
-static int gForceSquaredMeasuresIx = 0;
+// Do not waste memory storing all the measurements as a framerate is much lower than the task rate
+#define KABOOM_G_FORCE_MEASURES_FRACTION 4
+#define KABOOM_G_FORCE_MEASURES_COUNT (KABOOM_TASK_HZ / KABOOM_G_FORCE_MEASURES_FRACTION)
+static float gForceSquaredMeasures[KABOOM_G_FORCE_MEASURES_COUNT] = {0.0};
+static uint8_t gForceMeasuresCounter = 0;
 
 // Runtime variables
 static kaboomState_t kaboomState = KABOOM_STATE_IDLE;
@@ -66,7 +71,7 @@ bool kaboomIsDisabled(void)
     return isDisabled;
 }
 
-float kaboomCurrentSensitivity(void)
+float currentSensitivity(void)
 {
     if (getBoxIdState(KABOOM_MORE_SENSITIVITY)) {
         return moreSensitivity;
@@ -74,9 +79,14 @@ float kaboomCurrentSensitivity(void)
     return sensitivity;
 }
 
+float kaboomCurrentGForce(void)
+{
+    return sqrtf(currentSensitivity()) * acc.dev.acc_1G_rec;
+}
+
 float kaboomGetMaxGForceSquared(void) {
     float maxGForceSquared = 0.0;
-    for (int i = 0; i < KABOOM_TASK_HZ; i++) {
+    for (int i = 0; i < KABOOM_G_FORCE_MEASURES_COUNT; i++) {
         if (gForceSquaredMeasures[i] > maxGForceSquared) {
             maxGForceSquared = gForceSquaredMeasures[i];
         }
@@ -98,8 +108,9 @@ static int findKaboomPinioIndex(void)
 
 void kaboomInit(void)
 {
-    sensitivity = (float) (kaboomConfig()->sensitivity * kaboomConfig()->sensitivity);
-    moreSensitivity = (float) (kaboomConfig()->more_sensitivity * kaboomConfig()->more_sensitivity);
+    float acc1GSquared = acc.dev.acc_1G * acc.dev.acc_1G;
+    sensitivity = ((float) (kaboomConfig()->sensitivity * kaboomConfig()->sensitivity)) * acc1GSquared;
+    moreSensitivity = ((float) (kaboomConfig()->more_sensitivity * kaboomConfig()->more_sensitivity)) * acc1GSquared;
     activationTimeUs = kaboomConfig()->activation_time_secs * US_IN_SEC;
     selfDestructionTimeUs = kaboomConfig()->self_destruction_time_secs * US_IN_SEC;
 
@@ -124,12 +135,15 @@ void checkKaboom(timeUs_t currentTimeUs)
     isDisabled = getBoxIdState(KABOOM_DISABLED);
 
     // We do not want to calculate real g-force because it requires a square root operation
-    float gForceSquared = calcAccModulusSquared() * acc.dev.acc_1G_rec * acc.dev.acc_1G_rec;
-    gForceSquaredMeasures[gForceSquaredMeasuresIx] = gForceSquared;
-    if (gForceSquaredMeasuresIx >= KABOOM_TASK_HZ - 1) {
-        gForceSquaredMeasuresIx = 0;
+    float gForceSquared = calcAccModulusSquared();
+    uint32_t gForceMeasuresIx = gForceMeasuresCounter / KABOOM_G_FORCE_MEASURES_FRACTION;
+    if (gForceMeasuresCounter % KABOOM_G_FORCE_MEASURES_FRACTION == 0 || gForceSquared > gForceSquaredMeasures[gForceMeasuresIx]) {
+        gForceSquaredMeasures[gForceMeasuresIx] = gForceSquared;
+    }
+    if (gForceMeasuresCounter + 1 >= KABOOM_TASK_HZ) {
+        gForceMeasuresCounter = 0;
     } else {
-        gForceSquaredMeasuresIx++;
+        gForceMeasuresCounter++;
     }
 
     if (kaboomBoxState && !prevKaboomBoxState) {
@@ -173,7 +187,7 @@ void checkKaboom(timeUs_t currentTimeUs)
             if (kaboomBoxState && !prevKaboomBoxState) {
                 kaboomState = KABOOM_STATE_KABOOM;
             } else {
-                if (gForceSquared >= kaboomCurrentSensitivity()) {
+                if (gForceSquared >= currentSensitivity()) {
                     kaboomState = KABOOM_STATE_KABOOM;
                 }
             }

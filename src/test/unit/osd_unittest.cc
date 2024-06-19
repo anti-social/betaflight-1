@@ -109,7 +109,7 @@ extern "C" {
     bool simulationGpsHealthy;
     kaboomState_t simulationKaboomState = KABOOM_STATE_IDLE;
     bool simulationKaboomIsDisabled = false;
-    float simulationKaboomSensitivity = 81.0;
+    float simulationKaboomGForce = 9.0;
 }
 
 uint32_t simulationFeatureFlags = FEATURE_GPS;
@@ -1357,7 +1357,7 @@ TEST_F(OsdTest, TestElementKaboom)
     }
 
     // when
-    simulationKaboomSensitivity = 4.0;
+    simulationKaboomGForce = 2.0;
     simulationKaboomIsDisabled = false;
     displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
     osdRefresh();
@@ -1586,8 +1586,8 @@ extern "C" {
     void schedulerIgnoreTaskExecTime(void) { }
     bool schedulerGetIgnoreTaskExecTime() { return false; }
     void schedulerSetNextStateTime(timeDelta_t) {}
-    float calcAccModulusSquared(void) { return 2.0; }
+    float kaboomGetMaxGForceSquared(void) { return 2.0; }
     kaboomState_t kaboomGetState(void) { return simulationKaboomState; }
     bool kaboomIsDisabled(void) { return simulationKaboomIsDisabled; }
-    float kaboomCurrentSensitivity(void) { return simulationKaboomSensitivity; }
+    float kaboomCurrentGForce(void) { return simulationKaboomGForce; }
 }
