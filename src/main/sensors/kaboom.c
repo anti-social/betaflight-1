@@ -122,6 +122,11 @@ void kaboomInit(void)
     numKaboomBoxActivated = 0;
     kaboomBoxActivatedTimeUs = 0;
     armTimeUs = 0;
+
+    for (int i = 0; i < KABOOM_G_FORCE_MEASURES_COUNT; i++) {
+        gForceSquaredMeasures[i] = 0.0;
+    }
+    gForceMeasuresCounter = 0;
 }
 
 void checkKaboom(timeUs_t currentTimeUs)

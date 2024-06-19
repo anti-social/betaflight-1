@@ -363,20 +363,20 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     EXPECT_EQ(true, kaboomIsDisabled());
 }
 
-TEST_F(KaboomTest, TestGetKaboomMaxGForceSquared)
+TEST_F(KaboomTest, TestKaboomGetMaxGForceSquared)
 {
     // given
     kaboomInit();
     // then
     EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
 
-    // when
-    for (int i = 0; i < 235; i++) {
+    for (int i = 0; i < 1000; i++) {
+        // when
         acc.accADC[0] = (float) i;
         checkKaboom(0);
+        // then
+        EXPECT_EQ((float) i * (float) i, kaboomGetMaxGForceSquared());
     }
-    // then
-    EXPECT_EQ(234.0 * 234.0, kaboomGetMaxGForceSquared());
 }
 
 // STUBS
