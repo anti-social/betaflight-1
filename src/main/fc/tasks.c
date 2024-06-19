@@ -374,7 +374,7 @@ task_attribute_t task_attributes[TASK_COUNT] = {
     [TASK_ACCEL] = DEFINE_TASK("ACC", NULL, NULL, taskUpdateAccelerometer, TASK_PERIOD_HZ(1000), TASK_PRIORITY_MEDIUM),
     [TASK_ATTITUDE] = DEFINE_TASK("ATTITUDE", NULL, NULL, imuUpdateAttitude, TASK_PERIOD_HZ(100), TASK_PRIORITY_MEDIUM),
 
-    [TASK_KABOOM] = DEFINE_TASK("KABOOM", NULL, NULL, taskCheckKaboom, TASK_PERIOD_HZ(100), TASK_PRIORITY_MEDIUM),
+    [TASK_KABOOM] = DEFINE_TASK("KABOOM", NULL, NULL, taskCheckKaboom, TASK_PERIOD_HZ(KABOOM_TASK_HZ), TASK_PRIORITY_MEDIUM),
 #endif
 
     [TASK_RX] = DEFINE_TASK("RX", NULL, rxUpdateCheck, taskUpdateRxMain, TASK_PERIOD_HZ(33), TASK_PRIORITY_HIGH), // If event-based scheduling doesn't work, fallback to periodic scheduling

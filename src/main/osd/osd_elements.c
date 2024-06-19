@@ -1065,7 +1065,9 @@ static void osdElementReadyMode(osdElementParms_t *element)
 #ifdef USE_ACC
 static void osdElementGForce(osdElementParms_t *element)
 {
-    osdPrintFloat(element->buff, SYM_NONE, osdGForce, "", 1, true, 'G');
+    float maxGForce = sqrtf(kaboomGetMaxGForceSquared());
+    osdPrintFloat(element->buff, SYM_NONE, maxGForce, "", 1, true, 'G');
+
 }
 #endif // USE_ACC
 

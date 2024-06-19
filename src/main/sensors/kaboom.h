@@ -3,6 +3,8 @@
 #include "common/time.h"
 #include "pg/pg.h"
 
+#define KABOOM_TASK_HZ 100
+
 typedef enum kaboomState_e {
     KABOOM_STATE_IDLE,
     KABOOM_STATE_ACTIVATING,
@@ -13,6 +15,7 @@ typedef enum kaboomState_e {
 kaboomState_t kaboomGetState(void);
 bool kaboomIsDisabled(void);
 float kaboomCurrentSensitivity(void);
+float kaboomGetMaxGForceSquared(void);
 void kaboomInit(void);
 void checkKaboom(timeUs_t currentTimeUs);
 

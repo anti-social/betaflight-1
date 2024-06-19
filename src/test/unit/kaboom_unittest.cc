@@ -363,6 +363,22 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     EXPECT_EQ(true, kaboomIsDisabled());
 }
 
+TEST_F(KaboomTest, TestGetKaboomMaxGForceSquared)
+{
+    // given
+    kaboomInit();
+    // then
+    EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+
+    // when
+    for (int i = 0; i < 235; i++) {
+        acc.accADC[0] = (float) i;
+        checkKaboom(0);
+    }
+    // then
+    EXPECT_EQ(234.0 * 234.0, kaboomGetMaxGForceSquared());
+}
+
 // STUBS
 extern "C" {
     // config/feature.h

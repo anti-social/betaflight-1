@@ -30,6 +30,10 @@ static timeUs_t activationTimeUs = (KABOOM_DEFAULT_ACTIVATION_TIME_SECS * US_IN_
 static timeUs_t selfDestructionTimeUs = (KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS * US_IN_SEC);
 static int kaboomPinioIx = -1;
 
+// G-Force measures to display maximum value for the last second period
+static float gForceSquaredMeasures[KABOOM_TASK_HZ] = {0.0};
+static int gForceSquaredMeasuresIx = 0;
+
 // Runtime variables
 static kaboomState_t kaboomState = KABOOM_STATE_IDLE;
 static bool isDisabled = false;
@@ -70,6 +74,16 @@ float kaboomCurrentSensitivity(void)
     return sensitivity;
 }
 
+float kaboomGetMaxGForceSquared(void) {
+    float maxGForceSquared = 0.0;
+    for (int i = 0; i < KABOOM_TASK_HZ; i++) {
+        if (gForceSquaredMeasures[i] > maxGForceSquared) {
+            maxGForceSquared = gForceSquaredMeasures[i];
+        }
+    }
+    return maxGForceSquared;
+}
+
 static int findKaboomPinioIndex(void)
 {
     for (int i = 0; i < PINIO_COUNT; i++) {
@@ -108,6 +122,15 @@ void checkKaboom(timeUs_t currentTimeUs)
     bool kaboomBoxState = getBoxIdState(KABOOM);
 
     isDisabled = getBoxIdState(KABOOM_DISABLED);
+
+    // We do not want to calculate real g-force because it requires a square root operation
+    float gForceSquared = calcAccModulusSquared() * acc.dev.acc_1G_rec * acc.dev.acc_1G_rec;
+    gForceSquaredMeasures[gForceSquaredMeasuresIx] = gForceSquared;
+    if (gForceSquaredMeasuresIx >= KABOOM_TASK_HZ - 1) {
+        gForceSquaredMeasuresIx = 0;
+    } else {
+        gForceSquaredMeasuresIx++;
+    }
 
     if (kaboomBoxState && !prevKaboomBoxState) {
         if (numKaboomBoxActivated == 0) {
@@ -150,8 +173,6 @@ void checkKaboom(timeUs_t currentTimeUs)
             if (kaboomBoxState && !prevKaboomBoxState) {
                 kaboomState = KABOOM_STATE_KABOOM;
             } else {
-                // We do not want to calculate real g-force because it requires a square root operation
-                float gForceSquared = calcAccModulusSquared() * acc.dev.acc_1G_rec * acc.dev.acc_1G_rec;
                 if (gForceSquared >= kaboomCurrentSensitivity()) {
                     kaboomState = KABOOM_STATE_KABOOM;
                 }
