@@ -109,6 +109,7 @@ extern "C" {
     bool simulationGpsHealthy;
     kaboomState_t simulationKaboomState = KABOOM_STATE_IDLE;
     bool simulationKaboomIsDisabled = false;
+    timeUs_t simulationKaboomTimeToSelfDestructionUs = 120000000;
     float simulationKaboomGForce = 9.0;
 }
 
@@ -1329,6 +1330,7 @@ TEST_F(OsdTest, TestElementKaboom)
             } else {
                 displayPortTestBufferSubstring(3, 11, "KABOOM ");
             }
+            displayPortTestBufferSubstring(3, 12, "          ");
         } else {
             displayPortTestBufferIsEmpty();
         }
@@ -1354,11 +1356,39 @@ TEST_F(OsdTest, TestElementKaboom)
         } else {
             displayPortTestBufferSubstring(3, 11, "KABOOM ");
         }
+        displayPortTestBufferSubstring(3, 12, "          ");
     }
 
     // when
-    simulationKaboomGForce = 2.0;
+    simulationTime += 1000000;
     simulationKaboomIsDisabled = false;
+    simulationKaboomTimeToSelfDestructionUs = 30000000;
+    displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+    osdRefresh();
+    // then
+    displayPortTestBufferSubstring(3, 11, "KABOOM/9.0G ");
+    displayPortTestBufferSubstring(3, 12, "  30.0      ");
+
+    // when
+    simulationTime += 1000000;
+    simulationKaboomTimeToSelfDestructionUs = 9800000;
+    displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+    osdRefresh();
+    // then
+    displayPortTestBufferSubstring(3, 11, "KABOOM/9.0G ");
+    displayPortTestBufferSubstring(3, 12, "   9.8      ");
+
+    // when
+    simulationTime += 1000000;
+    simulationKaboomTimeToSelfDestructionUs = 0;
+    displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
+    osdRefresh();
+    // then
+    displayPortTestBufferSubstring(3, 11, "KABOOM/9.0G ");
+    displayPortTestBufferSubstring(3, 12, "   0.0      ");
+
+    // when
+    simulationKaboomGForce = 2.0;
     displayClearScreen(&testDisplayPort, DISPLAY_CLEAR_WAIT);
     osdRefresh();
     // then
@@ -1589,5 +1619,6 @@ extern "C" {
     float kaboomGetMaxGForceSquared(void) { return 2.0; }
     kaboomState_t kaboomGetState(void) { return simulationKaboomState; }
     bool kaboomIsDisabled(void) { return simulationKaboomIsDisabled; }
+    timeUs_t kaboomTimeToSelfDestructionUs(timeUs_t) { return simulationKaboomTimeToSelfDestructionUs; }
     float kaboomCurrentGForce(void) { return simulationKaboomGForce; }
 }

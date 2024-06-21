@@ -44,6 +44,7 @@ static kaboomState_t kaboomState = KABOOM_STATE_IDLE;
 static bool isDisabled = false;
 static bool prevKaboomBoxState = false;
 static timeUs_t kaboomStartTimeUs = 0;
+static timeUs_t kaboomSelfDestructionEtaUs = 0;
 
 // Variables to track a manual activation
 static uint8_t numKaboomBoxActivated = 0;
@@ -94,6 +95,14 @@ float kaboomGetMaxGForceSquared(void) {
     return maxGForceSquared;
 }
 
+timeUs_t kaboomTimeToSelfDestructionUs(timeUs_t currentTimeUs) {
+    if (currentTimeUs >= kaboomSelfDestructionEtaUs) {
+        return 0;
+    }
+    return kaboomSelfDestructionEtaUs - currentTimeUs;
+}
+
+
 static int findKaboomPinioIndex(void)
 {
     for (int i = 0; i < PINIO_COUNT; i++) {
@@ -119,6 +128,7 @@ void kaboomInit(void)
     kaboomState = KABOOM_STATE_IDLE;
     prevKaboomBoxState = false;
     kaboomStartTimeUs = 0;
+    kaboomSelfDestructionEtaUs = 0;
     numKaboomBoxActivated = 0;
     kaboomBoxActivatedTimeUs = 0;
     armTimeUs = 0;
@@ -129,7 +139,7 @@ void kaboomInit(void)
     gForceMeasuresCounter = 0;
 }
 
-void checkKaboom(timeUs_t currentTimeUs)
+void kaboomCheck(timeUs_t currentTimeUs)
 {
     if (kaboomPinioIx < 0) {
         return;
@@ -177,6 +187,9 @@ void checkKaboom(timeUs_t currentTimeUs)
         goto exit;
     }
 
+    if (kaboomState == KABOOM_STATE_ACTIVATING) {
+        kaboomSelfDestructionEtaUs = armTimeUs + selfDestructionTimeUs;
+    }
     kaboomState = KABOOM_STATE_WAITING;
 
     if (!isDisabled) {

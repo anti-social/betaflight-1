@@ -16,8 +16,9 @@ kaboomState_t kaboomGetState(void);
 bool kaboomIsDisabled(void);
 float kaboomCurrentGForce(void);
 float kaboomGetMaxGForceSquared(void);
+timeUs_t kaboomTimeToSelfDestructionUs(timeUs_t currentTimeUs);
 void kaboomInit(void);
-void checkKaboom(timeUs_t currentTimeUs);
+void kaboomCheck(timeUs_t currentTimeUs);
 
 #if defined(USE_ACC)
 typedef struct kaboomConfig_s {

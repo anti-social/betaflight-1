@@ -169,7 +169,7 @@ static void taskUpdateAccelerometer(timeUs_t currentTimeUs)
 #ifdef USE_ACC
 static void taskCheckKaboom(timeUs_t currentTimeUs)
 {
-    checkKaboom(currentTimeUs);
+    kaboomCheck(currentTimeUs);
 }
 #endif
 

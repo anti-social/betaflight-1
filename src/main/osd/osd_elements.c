@@ -1175,6 +1175,19 @@ static void osdElementKaboom(osdElementParms_t *element)
         if (!kaboomIsDisabled()) {
             osdPrintFloat(element->buff + KABOOM_STR_LEN, '/', kaboomCurrentGForce(), "", 1, true, 'G');
         }
+        float ttl = (float) kaboomTimeToSelfDestructionUs(micros()) / 1000000;
+        if (kaboomState == KABOOM_STATE_WAITING) {
+            if (ttl <= 60) {
+                char countdown[8];
+                int offset = 0;
+                if (ttl < 10) {
+                    countdown[0] = ' ';
+                    offset = 1;
+                }
+                osdPrintFloat(countdown + offset, SYM_NONE, ttl, "", 1, true, SYM_NONE);
+                osdDisplayWrite(element, element->elemPosX + 2, element->elemPosY + 1, DISPLAYPORT_SEVERITY_NORMAL, countdown);
+            }
+        }
         break;
     case KABOOM_STATE_KABOOM:
         renderKaboomAnimation(element);
