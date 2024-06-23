@@ -122,6 +122,9 @@ void kaboomInit(void)
     moreSensitivity = ((float) (kaboomConfig()->more_sensitivity * kaboomConfig()->more_sensitivity)) * acc1GSquared;
     activationTimeUs = kaboomConfig()->activation_time_secs * US_IN_SEC;
     selfDestructionTimeUs = kaboomConfig()->self_destruction_time_secs * US_IN_SEC;
+    if (selfDestructionTimeUs < activationTimeUs + 60 * US_IN_SEC) {
+        selfDestructionTimeUs = activationTimeUs + 60 * US_IN_SEC;
+    }
 
     kaboomPinioIx = findKaboomPinioIndex();
 
