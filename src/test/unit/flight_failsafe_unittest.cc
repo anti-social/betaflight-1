@@ -81,6 +81,7 @@ void configureFailsafe(void)
     rxConfigMutable()->mincheck = TEST_MIN_CHECK;
 
     failsafeConfigMutable()->failsafe_delay = 10; // 1 second
+    failsafeConfigMutable()->failsafe_delay_multiplier = 1; // use original value
     failsafeConfigMutable()->failsafe_off_delay = 15; // 1.5 seconds
     failsafeConfigMutable()->failsafe_switch_mode = FAILSAFE_SWITCH_MODE_STAGE1;
     failsafeConfigMutable()->failsafe_throttle = 1200;
