@@ -72,13 +72,23 @@ void vtxControlInputPoll(void)
 #endif
 }
 
+#if defined(USE_VTX_IN_FLIGHT_CONTROL)
+bool vtxControlFrequencyIsAllowed(void)
+{
+    return true;
+}
+#else
+bool vtxControlFrequencyIsAllowed(void)
+{
+    return !ARMING_FLAG(ARMED);
+}
+#endif
+
 static void vtxUpdateBandAndChannel(uint8_t bandStep, uint8_t channelStep)
 {
-#if !defined(USE_VTX_IN_FLIGHT_CONTROL)
-    if (ARMING_FLAG(ARMED)) {
+    if (!vtxControlFrequencyIsAllowed()) {
         locked = 1;
     }
-#endif
 
     if (!locked && vtxCommonDevice()) {
         vtxSettingsConfigMutable()->band += bandStep;
@@ -108,11 +118,9 @@ void vtxDecrementChannel(void)
 
 void vtxUpdateActivatedChannel(void)
 {
-#if !defined(USE_VTX_IN_FLIGHT_CONTROL)
-    if (ARMING_FLAG(ARMED)) {
+    if (!vtxControlFrequencyIsAllowed()) {
         locked = 1;
     }
-#endif
 
     if (vtxCommonDevice()) {
         static uint8_t lastIndex = -1;

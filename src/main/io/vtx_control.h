@@ -48,6 +48,8 @@ PG_DECLARE(vtxConfig_t, vtxConfig);
 void vtxControlInit(void);
 void vtxControlInputPoll(void);
 
+bool vtxControlFrequencyIsAllowed(void);
+
 void vtxIncrementBand(void);
 void vtxDecrementBand(void);
 void vtxIncrementChannel(void);
