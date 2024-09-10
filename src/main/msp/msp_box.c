@@ -104,9 +104,9 @@ static const box_t boxes[CHECKBOX_ITEM_COUNT] = {
     { .boxId = BOXLAPTIMERRESET, .boxName = "LAP TIMER RESET", .permanentId = 54},
 
     // Kaboom
-    { .boxId = KABOOM, .boxName = "KABOOM", .permanentId = 254},
-    { .boxId = KABOOM_DISABLED, .boxName = "KABOOM DISABLED", .permanentId = 253},
-    { .boxId = KABOOM_MORE_SENSITIVITY, .boxName = "KABOOM MORE SENSITIVITY", .permanentId = 252},
+    { .boxId = BOXKABOOM, .boxName = "KABOOM", .permanentId = 254},
+    { .boxId = BOXKABOOM_DISABLED, .boxName = "KABOOM DISABLED", .permanentId = 253},
+    { .boxId = BOXKABOOM_MORE_SENSITIVITY, .boxName = "KABOOM MORE SENSITIVITY", .permanentId = 252},
 };
 
 // mask of enabled IDs, calculated on startup based on enabled features. boxId_e is used as bit index

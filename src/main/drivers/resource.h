@@ -113,6 +113,8 @@ typedef enum {
     OWNER_SOFTSERIAL_RX,
     OWNER_LPUART_TX,
     OWNER_LPUART_RX,
+    OWNER_KABOOM,
+    OWNER_KABOOM_READY_LED,
     OWNER_TOTAL_COUNT
 } resourceOwner_e;
 

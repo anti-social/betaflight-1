@@ -62,8 +62,12 @@ void pinioBoxUpdate(timeUs_t currentTimeUs)
     for (int i = 0; i < PINIO_COUNT; i++) {
         uint8_t boxId = pinioBoxRuntimeConfig.boxId[i];
 
-        // TODO: Can we only check user boxes?
-        if (boxId != BOXID_NONE && boxId != KABOOM) {
+        // Protect kaboom box from using in pinio
+        if (boxId == BOXKABOOM) {
+            continue;
+        }
+
+        if (boxId != BOXID_NONE) {
             pinioSet(i, getBoxIdState(boxId));
         }
     }

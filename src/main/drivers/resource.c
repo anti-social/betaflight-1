@@ -115,4 +115,6 @@ const char * const ownerNames[OWNER_TOTAL_COUNT] = {
     "SOFTSERIAL_RX",
     "LPUART_TX",
     "LPUART_RX",
+    "KABOOM",
+    "KABOOM_READY_LED",
 };

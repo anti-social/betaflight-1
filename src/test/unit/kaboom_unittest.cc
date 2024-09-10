@@ -2,7 +2,7 @@
 
 extern "C" {
     #include "common/filter.h"
-    #include "drivers/pinio.h"
+    #include "drivers/io.h"
     #include "fc/rc_modes.h"
     #include "fc/runtime_config.h"
     #include "io/beeper.h"
@@ -11,21 +11,16 @@ extern "C" {
     #include "sensors/acceleration_init.h"
     #include "sensors/kaboom.h"
 
-    uint8_t simulationKaboomPinioBoxId = KABOOM;
+    #define KABOOM_TAG 1
+    #define KABOOM_READY_TAG 2
+
+    static bool kaboomIoState = false;
+    static bool kaboomReadyIoState = false;
+
+    uint8_t simulationKaboomPinioBoxId = BOXKABOOM;
     bool simulationKaboomBoxState = false;
     bool simulationKaboomDisabledBoxState = false;
     bool simulationKaboomMoreSensitivityBoxState = false;
-
-    // msp/msp_box.h
-    bool getBoxIdState(boxId_e boxid);
-
-    // io/piniobox.h
-    uint8_t pinioBoxGetBoxId(int index);
-
-    // drivers/pinio.h
-    bool pinioState[PINIO_COUNT] = {false};
-    bool pinioGet(int index);
-    void pinioSet(int index, bool on);
 }
 
 class KaboomTest : public ::testing::Test
@@ -36,23 +31,28 @@ protected:
     virtual void SetUp() {
         DISABLE_ARMING_FLAG(ARMED);
 
-        simulationKaboomPinioBoxId = KABOOM;
         simulationKaboomBoxState = false;
         simulationKaboomDisabledBoxState = false;
         simulationKaboomMoreSensitivityBoxState = false;
 
-        memset(kaboomConfigMutable(), 0, sizeof(kaboomConfig_t));
-        kaboomConfigMutable()->sensitivity = 5;
-        kaboomConfigMutable()->more_sensitivity = 2;
-        kaboomConfigMutable()->activation_time_secs = 60;
-        kaboomConfigMutable()->self_destruction_time_secs = 1200;
+        kaboomConfig_t* cfg = kaboomConfigMutable();
+        memset(cfg, 0, sizeof(kaboomConfig_t));
+        cfg->sensitivity = 5;
+        cfg->more_sensitivity = 2;
+        cfg->activation_time_secs = 60;
+        cfg->self_destruction_time_secs = 1200;
+        cfg->kaboomTag = IO_TAG_NONE;
+        cfg->kaboomReadyTag = IO_TAG_NONE;
 
         memset(&acc, 0, sizeof(acc));
         acc.dev.acc_1G = 1;
         acc.dev.acc_1G_rec = 1.0f / acc.dev.acc_1G;
     }
 
-    virtual void TearDown() {}
+    virtual void TearDown() {
+        kaboomIoState = false;
+        kaboomReadyIoState = false;
+    }
 
     timeUs_t toWaitingState() {
         timeUs_t simulationTimeUs = 1000;
@@ -69,11 +69,14 @@ protected:
 
 TEST_F(KaboomTest, TestIdleIfNoKaboomPin)
 {
-    // given
-    simulationKaboomPinioBoxId = BOXID_NONE;
+    // timeUs_t a = 1000;
+    // printf("timeUs_t size: %lu\n", sizeof(a));
 
+    // given
+    kaboomConfigMutable()->kaboomTag = IO_TAG_NONE;
     kaboomInit();
     EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
 
     // when
     kaboomCheck(0);
@@ -101,59 +104,87 @@ TEST_F(KaboomTest, TestIdleIfNoKaboomPin)
 TEST_F(KaboomTest, TestIdleUntilArmed)
 {
     // given
-    simulationKaboomPinioBoxId = KABOOM;
-
+    kaboomConfigMutable()->kaboomTag = KABOOM_TAG;
+    kaboomConfigMutable()->kaboomReadyTag = KABOOM_READY_TAG;
     kaboomInit();
+    // then
     EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(false, kaboomReadyIoState);
 
     // when
     kaboomCheck(0);
     // then
     EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(false, kaboomReadyIoState);
 
     // when
     kaboomCheck(1000);
     // then
     EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(false, kaboomReadyIoState);
 
     // when
     ENABLE_ARMING_FLAG(ARMED);
     kaboomCheck(2000);
     // then
     EXPECT_EQ(KABOOM_STATE_ACTIVATING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(true, kaboomReadyIoState);
+
+    // when
+    kaboomCheck(1001999);
+    // then
+    EXPECT_EQ(true, kaboomReadyIoState);
+
+    // when
+    kaboomCheck(1002000);
+    // then
+    EXPECT_EQ(false, kaboomReadyIoState);
 
     // when
     DISABLE_ARMING_FLAG(ARMED);
-    kaboomCheck(3000);
+    kaboomCheck(2002000);
     // then
     EXPECT_EQ(KABOOM_STATE_ACTIVATING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(true, kaboomReadyIoState);
 
     // when
     ENABLE_ARMING_FLAG(ARMED);
     simulationKaboomDisabledBoxState = true;
-    kaboomCheck(4000);
+    kaboomCheck(3002000);
     // then
     EXPECT_EQ(KABOOM_STATE_ACTIVATING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(false, kaboomReadyIoState);
 
     // when
     simulationKaboomDisabledBoxState = false;
     kaboomCheck(60001999);
     // then
     EXPECT_EQ(KABOOM_STATE_ACTIVATING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(false, kaboomReadyIoState);
 
     // when
     kaboomCheck(60002000);
     // then
     EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
-
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(true, kaboomReadyIoState);
 };
 
 TEST_F(KaboomTest, TestManualActivation)
 {
     // given
+    kaboomConfigMutable()->kaboomTag = KABOOM_TAG;
     kaboomInit();
     // then
     EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
 
     timeUs_t simulationTimeUs = 1000;
 
@@ -169,6 +200,7 @@ TEST_F(KaboomTest, TestManualActivation)
         kaboomCheck(simulationTimeUs);
         // then
         EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+        EXPECT_EQ(false, kaboomIoState);
     }
 
     simulationTimeUs += 5000000;
@@ -192,23 +224,52 @@ TEST_F(KaboomTest, TestManualActivation)
 TEST_F(KaboomTest, TestManualKaboom)
 {
     // given
+    kaboomConfigMutable()->kaboomTag = KABOOM_TAG;
     kaboomInit();
     // then
     EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
 
     timeUs_t simulationTimeUs = toWaitingState();
 
+    // when
     simulationKaboomBoxState = true;
     kaboomCheck(simulationTimeUs);
+    // then
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
+    EXPECT_EQ(true, kaboomIoState);
+
+    // when
+    simulationTimeUs += 500000;
+    kaboomCheck(simulationTimeUs);
+    // then
+    EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
+    EXPECT_EQ(true, kaboomIoState);
+
+    // when
+    simulationKaboomBoxState = false;
+    simulationTimeUs += 499999;
+    kaboomCheck(simulationTimeUs);
+    // then
+    EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
+    EXPECT_EQ(true, kaboomIoState);
+
+    // when
+    simulationTimeUs += 1;
+    kaboomCheck(simulationTimeUs);
+    // then
+    EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
 }
 
 TEST_F(KaboomTest, TestKaboomSensitivity)
 {
     // given
+    kaboomConfigMutable()->kaboomTag = KABOOM_TAG;
     kaboomInit();
     // then
     EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
 
     timeUs_t simulationTimeUs = toWaitingState();
 
@@ -219,6 +280,7 @@ TEST_F(KaboomTest, TestKaboomSensitivity)
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
 
     // when
     acc.accADC[0] = 5.0;
@@ -227,14 +289,17 @@ TEST_F(KaboomTest, TestKaboomSensitivity)
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
+    EXPECT_EQ(true, kaboomIoState);
 }
 
 TEST_F(KaboomTest, TestKaboomMoreSensitivity)
 {
     // given
+    kaboomConfigMutable()->kaboomTag = KABOOM_TAG;
     kaboomInit();
     // then
     EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
 
     timeUs_t simulationTimeUs = toWaitingState();
 
@@ -246,14 +311,17 @@ TEST_F(KaboomTest, TestKaboomMoreSensitivity)
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
+    EXPECT_EQ(true, kaboomIoState);
 }
 
 TEST_F(KaboomTest, TestKaboomSelfDestruction)
 {
     // given
+    kaboomConfigMutable()->kaboomTag = KABOOM_TAG;
     kaboomInit();
     // then
     EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
 
     // when
     timeUs_t simulationTimeUs = toWaitingState();
@@ -265,6 +333,7 @@ TEST_F(KaboomTest, TestKaboomSelfDestruction)
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
     EXPECT_EQ(5000000, kaboomTimeToSelfDestructionUs(simulationTimeUs));
 
     // when
@@ -272,6 +341,7 @@ TEST_F(KaboomTest, TestKaboomSelfDestruction)
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
     EXPECT_EQ(1, kaboomTimeToSelfDestructionUs(simulationTimeUs));
 
     // when
@@ -279,6 +349,7 @@ TEST_F(KaboomTest, TestKaboomSelfDestruction)
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
+    EXPECT_EQ(true, kaboomIoState);
     EXPECT_EQ(0, kaboomTimeToSelfDestructionUs(simulationTimeUs));
 
     // when
@@ -286,6 +357,7 @@ TEST_F(KaboomTest, TestKaboomSelfDestruction)
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
+    EXPECT_EQ(true, kaboomIoState);
     EXPECT_EQ(0, kaboomTimeToSelfDestructionUs(simulationTimeUs));
 
     // when
@@ -293,6 +365,7 @@ TEST_F(KaboomTest, TestKaboomSelfDestruction)
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
+    EXPECT_EQ(true, kaboomIoState);
     EXPECT_EQ(0, kaboomTimeToSelfDestructionUs(simulationTimeUs));
 
     // when
@@ -300,15 +373,19 @@ TEST_F(KaboomTest, TestKaboomSelfDestruction)
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
     EXPECT_EQ(0, kaboomTimeToSelfDestructionUs(simulationTimeUs));
 }
 
 TEST_F(KaboomTest, TestKaboomDisabled)
 {
     // given
+    kaboomConfigMutable()->kaboomTag = KABOOM_TAG;
+    kaboomConfigMutable()->kaboomReadyTag = KABOOM_READY_TAG;
     kaboomInit();
     // then
     EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
     EXPECT_EQ(false, kaboomIsDisabled());
 
     timeUs_t simulationTimeUs = 0;
@@ -326,6 +403,8 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_ACTIVATING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(false, kaboomReadyIoState);
     EXPECT_EQ(true, kaboomIsDisabled());
 
     // when
@@ -337,6 +416,8 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(false, kaboomReadyIoState);
     EXPECT_EQ(true, kaboomIsDisabled());
 
     // when
@@ -347,6 +428,8 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(false, kaboomReadyIoState);
     EXPECT_EQ(true, kaboomIsDisabled());
 
     // when
@@ -354,6 +437,8 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(false, kaboomReadyIoState);
     EXPECT_EQ(true, kaboomIsDisabled());
 
     // when
@@ -361,6 +446,8 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
+    EXPECT_EQ(true, kaboomIoState);
+    EXPECT_EQ(true, kaboomReadyIoState);
     EXPECT_EQ(false, kaboomIsDisabled());
 
     // when
@@ -368,6 +455,8 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
+    EXPECT_EQ(true, kaboomIoState);
+    EXPECT_EQ(true, kaboomReadyIoState);
     EXPECT_EQ(false, kaboomIsDisabled());
 
     // when
@@ -375,12 +464,15 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(false, kaboomReadyIoState);
     EXPECT_EQ(true, kaboomIsDisabled());
 }
 
 TEST_F(KaboomTest, TestKaboomGetMaxGForceSquared)
 {
     // given
+    kaboomConfigMutable()->kaboomTag = KABOOM_TAG;
     kaboomInit();
     // then
     EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
@@ -425,11 +517,11 @@ extern "C" {
     // msp/msp_box.c
     bool getBoxIdState(boxId_e boxId) {
         switch (boxId) {
-            case KABOOM:
+            case BOXKABOOM:
                 return simulationKaboomBoxState;
-            case KABOOM_DISABLED:
+            case BOXKABOOM_DISABLED:
                 return simulationKaboomDisabledBoxState;
-            case KABOOM_MORE_SENSITIVITY:
+            case BOXKABOOM_MORE_SENSITIVITY:
                 return simulationKaboomMoreSensitivityBoxState;
             default:
                 return false;
@@ -444,11 +536,30 @@ extern "C" {
         return 255;
     }
 
-    // drivers/pinio.c
-    bool pinioGet(int ix) {
-        return pinioState[ix];
+    // drivers/io.c
+    void IOInit(IO_t io, resourceOwner_e owner, uint8_t index) {
+        UNUSED(io);
+        UNUSED(owner);
+        UNUSED(index);
     }
-    void pinioSet(int ix, bool on) {
-        pinioState[ix] = on;
+
+    void IOConfigGPIO(IO_t io, ioConfig_t cfg) {
+        UNUSED(io);
+        UNUSED(cfg);
+    }
+
+    IO_t IOGetByTag(ioTag_t tag) {
+        if (tag == 0) {
+            return IO_NONE;
+        }
+        return (IO_t) (long) tag;
+    }
+
+    void IOWrite(IO_t io, bool value) {
+        if ((long) io == KABOOM_TAG) {
+            kaboomIoState = value;
+        } else if ((long) io == KABOOM_READY_TAG) {
+            kaboomReadyIoState = value;
+        }
     }
 }

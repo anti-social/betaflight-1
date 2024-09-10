@@ -167,6 +167,7 @@ bool cliMode = false;
 #include "sensors/compass.h"
 #include "sensors/gyro.h"
 #include "sensors/gyro_init.h"
+#include "sensors/kaboom.h"
 #include "sensors/sensors.h"
 
 #include "telemetry/frsky_hub.h"
@@ -5135,6 +5136,8 @@ const cliResourceValue_t resourceTable[] = {
     DEFA( OWNER_PULLUP,        PG_PULLUP_CONFIG,   pinPullUpDownConfig_t, ioTag, PIN_PULL_UP_DOWN_COUNT ),
     DEFA( OWNER_PULLDOWN,      PG_PULLDOWN_CONFIG, pinPullUpDownConfig_t, ioTag, PIN_PULL_UP_DOWN_COUNT ),
 #endif
+    DEFS( OWNER_KABOOM,        PG_KABOOM_CONFIG, kaboomConfig_t, kaboomTag ),
+    DEFS( OWNER_KABOOM_READY_LED, PG_KABOOM_CONFIG, kaboomConfig_t, kaboomReadyTag ),
 };
 
 #undef DEFS
@@ -6044,7 +6047,7 @@ static void cliResource(const char *cmdName, char *cmdline)
         }
 
         const char *resourceName = ownerNames[resourceTable[resourceIndex].owner];
-        if (strncasecmp(pch, resourceName, strlen(resourceName)) == 0) {
+        if (strcasecmp(pch, resourceName) == 0) {
             break;
         }
     }

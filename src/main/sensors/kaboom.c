@@ -2,6 +2,7 @@
 
 #include "fc/runtime_config.h"
 
+#include "drivers/io.h"
 #include "io/piniobox.h"
 #include "msp/msp_box.h"
 #include "pg/pg_ids.h"
@@ -27,9 +28,10 @@
 
 static float sensitivity = (float) (KABOOM_DEFAULT_SENSITIVITY * KABOOM_DEFAULT_SENSITIVITY);
 static float moreSensitivity = (float) (KABOOM_DEFAULT_MORE_SENSITIVITY * KABOOM_DEFAULT_MORE_SENSITIVITY);
-static timeUs_t activationTimeUs = (KABOOM_DEFAULT_ACTIVATION_TIME_SECS * US_IN_SEC);
-static timeUs_t selfDestructionTimeUs = (KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS * US_IN_SEC);
-static int kaboomPinioIx = -1;
+static timeUs_t activationTimeUs = KABOOM_DEFAULT_ACTIVATION_TIME_SECS * US_IN_SEC;
+static timeUs_t selfDestructionTimeUs = KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS * US_IN_SEC;
+static IO_t kaboomPin = IO_NONE;
+static IO_t kaboomReadyPin = IO_NONE;
 
 // G-Force measures to display maximum value for the last second period
 // Do not waste memory storing all the measurements as a framerate is much lower than the task rate
@@ -59,6 +61,8 @@ PG_RESET_TEMPLATE(kaboomConfig_t, kaboomConfig,
     .more_sensitivity = KABOOM_DEFAULT_MORE_SENSITIVITY,
     .activation_time_secs = KABOOM_DEFAULT_ACTIVATION_TIME_SECS,
     .self_destruction_time_secs = KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS,
+    .kaboomTag = IO_TAG_NONE,
+    .kaboomReadyTag = IO_TAG_NONE,
 );
 
 kaboomState_t kaboomGetState(void)
@@ -73,7 +77,7 @@ bool kaboomIsDisabled(void)
 
 float currentSensitivity(void)
 {
-    if (getBoxIdState(KABOOM_MORE_SENSITIVITY)) {
+    if (getBoxIdState(BOXKABOOM_MORE_SENSITIVITY)) {
         return moreSensitivity;
     }
     return sensitivity;
@@ -101,31 +105,70 @@ timeUs_t kaboomTimeToSelfDestructionUs(timeUs_t currentTimeUs) {
     return kaboomSelfDestructionEtaUs - currentTimeUs;
 }
 
-
-static int findKaboomPinioIndex(void)
-{
-    for (int i = 0; i < PINIO_COUNT; i++) {
-        uint8_t boxId = pinioBoxGetBoxId(i);
-
-        if (boxId == KABOOM) {
-            return i;
-        }
+static void setKaboomReadyPin(bool value) {
+    static bool kaboomReadyPinState = false;
+    if (value != kaboomReadyPinState) {
+        IOWrite(kaboomReadyPin, value);
+        kaboomReadyPinState = value;
     }
-    return -1;
+}
+
+static void applyKaboomReadyState(timeUs_t currentTimeUs) {
+    if (kaboomReadyPin == IO_NONE) {
+        return;
+    }
+
+    switch (kaboomState) {
+        case KABOOM_STATE_IDLE:
+            setKaboomReadyPin(false);
+            break;
+        case KABOOM_STATE_ACTIVATING:
+        {
+            timeUs_t armDurationUs = currentTimeUs - armTimeUs;
+            // printf("arm duration us: %d\n", armDurationUs);
+            timeUs_t blinkPhaseUs = activationTimeUs / 4;
+            // printf("blink phase us: %d\n", blinkPhaseUs);
+            timeUs_t pulseTimeUs = US_IN_SEC / (armDurationUs / blinkPhaseUs + 1);
+            // printf("pulse time us: %d\n", pulseTimeUs);
+            bool state = armDurationUs / pulseTimeUs % 2 == 0;
+            // printf("state: %d\n", state);
+            setKaboomReadyPin(state);
+            break;
+        }
+        case KABOOM_STATE_WAITING:
+            setKaboomReadyPin(!isDisabled);
+            break;
+        case KABOOM_STATE_KABOOM:
+            setKaboomReadyPin(true);
+            break;
+    }
 }
 
 void kaboomInit(void)
 {
+    const kaboomConfig_t* cfg = kaboomConfig();
+
     float acc1GSquared = acc.dev.acc_1G * acc.dev.acc_1G;
-    sensitivity = ((float) (kaboomConfig()->sensitivity * kaboomConfig()->sensitivity)) * acc1GSquared;
-    moreSensitivity = ((float) (kaboomConfig()->more_sensitivity * kaboomConfig()->more_sensitivity)) * acc1GSquared;
-    activationTimeUs = kaboomConfig()->activation_time_secs * US_IN_SEC;
-    selfDestructionTimeUs = kaboomConfig()->self_destruction_time_secs * US_IN_SEC;
+    sensitivity = ((float) (cfg->sensitivity * cfg->sensitivity)) * acc1GSquared;
+    moreSensitivity = ((float) (cfg->more_sensitivity * cfg->more_sensitivity)) * acc1GSquared;
+    activationTimeUs = cfg->activation_time_secs * US_IN_SEC;
+    selfDestructionTimeUs = cfg->self_destruction_time_secs * US_IN_SEC;
     if (selfDestructionTimeUs < activationTimeUs + 60 * US_IN_SEC) {
         selfDestructionTimeUs = activationTimeUs + 60 * US_IN_SEC;
     }
 
-    kaboomPinioIx = findKaboomPinioIndex();
+    // printf("Kaboom tag: %d\n", cfg->kaboomTag);
+    kaboomPin = IOGetByTag(cfg->kaboomTag);
+    // printf("Kaboom pin: %p\n", kaboomPin);
+    if (kaboomPin != IO_NONE) {
+        IOInit(kaboomPin, OWNER_KABOOM, 0);
+        IOConfigGPIO(kaboomPin, IOCFG_OUT_PP);
+    }
+    kaboomReadyPin = IOGetByTag(cfg->kaboomReadyTag);
+    if (kaboomReadyPin != IO_NONE) {
+        IOInit(kaboomReadyPin, OWNER_KABOOM_READY_LED, 0);
+        IOConfigGPIO(kaboomReadyPin, IOCFG_OUT_PP);
+    }
 
     kaboomState = KABOOM_STATE_IDLE;
     prevKaboomBoxState = false;
@@ -143,13 +186,14 @@ void kaboomInit(void)
 
 void kaboomCheck(timeUs_t currentTimeUs)
 {
-    if (kaboomPinioIx < 0) {
+    if (kaboomPin == IO_NONE) {
         return;
     }
+    // printf("Kaboom pin: %p\n", kaboomPin);
 
-    bool kaboomBoxState = getBoxIdState(KABOOM);
+    bool kaboomBoxState = getBoxIdState(BOXKABOOM);
 
-    isDisabled = getBoxIdState(KABOOM_DISABLED);
+    isDisabled = getBoxIdState(BOXKABOOM_DISABLED);
 
     // We do not want to calculate real g-force because it requires a square root operation
     float gForceSquared = calcAccModulusSquared();
@@ -214,16 +258,19 @@ void kaboomCheck(timeUs_t currentTimeUs)
         }
     }
 
-    bool kaboomPinState =  pinioGet(kaboomPinioIx);
+    static bool kaboomPinState = false;
     if (kaboomState == KABOOM_STATE_KABOOM && !kaboomPinState) {
-        pinioSet(kaboomPinioIx, true);
+        IOWrite(kaboomPin, true);
+        kaboomPinState = true;
         kaboomStartTimeUs = currentTimeUs;
     } else if (kaboomState != KABOOM_STATE_KABOOM && kaboomPinState) {
-        pinioSet(kaboomPinioIx, false);
+        IOWrite(kaboomPin, false);
+        kaboomPinState = false;
         kaboomStartTimeUs = 0;
     }
 
     exit:
+    applyKaboomReadyState(currentTimeUs);
     prevKaboomBoxState = kaboomBoxState;
 }
 #endif
