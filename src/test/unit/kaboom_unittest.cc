@@ -41,6 +41,7 @@ protected:
         cfg->more_sensitivity = 2;
         cfg->activation_time_secs = 60;
         cfg->self_destruction_time_secs = 1200;
+        cfg->pulse_time_ms = 1000;
         cfg->kaboomTag = IO_TAG_NONE;
         cfg->kaboomReadyTag = IO_TAG_NONE;
 
@@ -69,9 +70,6 @@ protected:
 
 TEST_F(KaboomTest, TestIdleIfNoKaboomPin)
 {
-    // timeUs_t a = 1000;
-    // printf("timeUs_t size: %lu\n", sizeof(a));
-
     // given
     kaboomConfigMutable()->kaboomTag = IO_TAG_NONE;
     kaboomInit();
@@ -375,6 +373,41 @@ TEST_F(KaboomTest, TestKaboomSelfDestruction)
     EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
     EXPECT_EQ(false, kaboomIoState);
     EXPECT_EQ(0, kaboomTimeToSelfDestructionUs(simulationTimeUs));
+}
+
+TEST_F(KaboomTest, TestKaboomPulseTime)
+{
+    // given
+    kaboomConfigMutable()->kaboomTag = KABOOM_TAG;
+    kaboomConfigMutable()->pulse_time_ms = 500;
+    kaboomInit();
+    // then
+    EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIsDisabled());
+
+    timeUs_t simulationTimeUs = toWaitingState();
+
+    // when
+    simulationKaboomBoxState = true;
+    kaboomCheck(simulationTimeUs);
+    // then
+    EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
+    EXPECT_EQ(true, kaboomIoState);
+
+    // when
+    simulationKaboomBoxState = false;
+    simulationTimeUs += 499999;
+    kaboomCheck(simulationTimeUs);
+    // then
+    EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
+    EXPECT_EQ(true, kaboomIoState);
+
+    // when
+    simulationTimeUs += 1;
+    kaboomCheck(simulationTimeUs);
+    // then
+    EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
 }
 
 TEST_F(KaboomTest, TestKaboomDisabled)

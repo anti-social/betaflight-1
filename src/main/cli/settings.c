@@ -1786,6 +1786,7 @@ const clivalue_t valueTable[] = {
     { "kaboom_more_sensitivity", VAR_UINT8 | MASTER_VALUE, .config.minmaxUnsigned = { 1, 20 }, PG_KABOOM_CONFIG, offsetof(kaboomConfig_t, more_sensitivity) },
     { "kaboom_activation_time_s", VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 30, 120 }, PG_KABOOM_CONFIG, offsetof(kaboomConfig_t, activation_time_secs) },
     { "kaboom_self_destruction_time_s", VAR_UINT32 | MASTER_VALUE, .config.u32Max = UINT32_MAX, PG_KABOOM_CONFIG, offsetof(kaboomConfig_t, self_destruction_time_secs) },
+    { "kaboom_pulse_time_ms", VAR_UINT16 | MASTER_VALUE, .config.minmaxUnsigned = { 10, 1000}, PG_KABOOM_CONFIG, offsetof(kaboomConfig_t, pulse_time_ms) },
 };
 
 const uint16_t valueTableEntryCount = ARRAYLEN(valueTable);

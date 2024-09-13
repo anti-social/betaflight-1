@@ -18,8 +18,7 @@
 #define KABOOM_DEFAULT_MORE_SENSITIVITY 4
 #define KABOOM_DEFAULT_ACTIVATION_TIME_SECS 60
 #define KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS 1200
-#define KABOOM_PULSE_TIME_US 1000000
-#define KABOOM_SELF_DESTRUCTION_REPEAT_INTERVAL_US (KABOOM_PULSE_TIME_US * 5)
+#define KABOOM_DEFAULT_PULSE_TIME_US 1000000
 
 // If a user switches kaboom box 3 times in a 5 second interval
 // we perceive this action as a start of an activation
@@ -30,6 +29,8 @@ static float sensitivity = (float) (KABOOM_DEFAULT_SENSITIVITY * KABOOM_DEFAULT_
 static float moreSensitivity = (float) (KABOOM_DEFAULT_MORE_SENSITIVITY * KABOOM_DEFAULT_MORE_SENSITIVITY);
 static timeUs_t activationTimeUs = KABOOM_DEFAULT_ACTIVATION_TIME_SECS * US_IN_SEC;
 static timeUs_t selfDestructionTimeUs = KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS * US_IN_SEC;
+static timeUs_t pulseTimeUs = KABOOM_DEFAULT_PULSE_TIME_US;
+static timeUs_t selfDestructionRepeatIntervalUs = KABOOM_DEFAULT_PULSE_TIME_US * 5;
 static IO_t kaboomPin = IO_NONE;
 static IO_t kaboomReadyPin = IO_NONE;
 
@@ -125,13 +126,9 @@ static void applyKaboomReadyState(timeUs_t currentTimeUs) {
         case KABOOM_STATE_ACTIVATING:
         {
             timeUs_t armDurationUs = currentTimeUs - armTimeUs;
-            // printf("arm duration us: %d\n", armDurationUs);
             timeUs_t blinkPhaseUs = activationTimeUs / 4;
-            // printf("blink phase us: %d\n", blinkPhaseUs);
             timeUs_t pulseTimeUs = US_IN_SEC / (armDurationUs / blinkPhaseUs + 1);
-            // printf("pulse time us: %d\n", pulseTimeUs);
             bool state = armDurationUs / pulseTimeUs % 2 == 0;
-            // printf("state: %d\n", state);
             setKaboomReadyPin(state);
             break;
         }
@@ -156,10 +153,10 @@ void kaboomInit(void)
     if (selfDestructionTimeUs < activationTimeUs + 60 * US_IN_SEC) {
         selfDestructionTimeUs = activationTimeUs + 60 * US_IN_SEC;
     }
+    pulseTimeUs = cfg->pulse_time_ms * 1000;
+    selfDestructionRepeatIntervalUs = pulseTimeUs * 5;
 
-    // printf("Kaboom tag: %d\n", cfg->kaboomTag);
     kaboomPin = IOGetByTag(cfg->kaboomTag);
-    // printf("Kaboom pin: %p\n", kaboomPin);
     if (kaboomPin != IO_NONE) {
         IOInit(kaboomPin, OWNER_KABOOM, 0);
         IOConfigGPIO(kaboomPin, IOCFG_OUT_PP);
@@ -189,7 +186,6 @@ void kaboomCheck(timeUs_t currentTimeUs)
     if (kaboomPin == IO_NONE) {
         return;
     }
-    // printf("Kaboom pin: %p\n", kaboomPin);
 
     bool kaboomBoxState = getBoxIdState(BOXKABOOM);
 
@@ -240,12 +236,12 @@ void kaboomCheck(timeUs_t currentTimeUs)
 
     if (!isDisabled) {
         if (armDurationUs >= selfDestructionTimeUs) {
-            if ((armDurationUs - selfDestructionTimeUs) % KABOOM_SELF_DESTRUCTION_REPEAT_INTERVAL_US < KABOOM_PULSE_TIME_US) {
+            if ((armDurationUs - selfDestructionTimeUs) % selfDestructionRepeatIntervalUs < pulseTimeUs) {
                 kaboomState = KABOOM_STATE_KABOOM;
             }
         }
 
-        if (kaboomStartTimeUs != 0 && currentTimeUs - kaboomStartTimeUs < KABOOM_PULSE_TIME_US) {
+        if (kaboomStartTimeUs != 0 && currentTimeUs - kaboomStartTimeUs < pulseTimeUs) {
             kaboomState = KABOOM_STATE_KABOOM;
         } else {
             if (kaboomBoxState && !prevKaboomBoxState) {
