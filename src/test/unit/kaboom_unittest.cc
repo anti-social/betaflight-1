@@ -301,6 +301,8 @@ TEST_F(KaboomTest, TestKaboomMoreSensitivity)
 
     timeUs_t simulationTimeUs = toWaitingState();
 
+    EXPECT_EQ(5.0, kaboomCurrentGForce());
+
     // when
     acc.accADC[0] = 2.0;
     acc.accADC[1] = 2.0;
@@ -310,6 +312,8 @@ TEST_F(KaboomTest, TestKaboomMoreSensitivity)
     // then
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
     EXPECT_EQ(true, kaboomIoState);
+
+    EXPECT_EQ(2.0, kaboomCurrentGForce());
 }
 
 TEST_F(KaboomTest, TestKaboomSelfDestruction)
@@ -373,6 +377,22 @@ TEST_F(KaboomTest, TestKaboomSelfDestruction)
     EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
     EXPECT_EQ(false, kaboomIoState);
     EXPECT_EQ(0, kaboomTimeToSelfDestructionUs(simulationTimeUs));
+}
+
+TEST_F(KaboomTest, TestKaboomSelfDestructionMinTime)
+{
+    // given
+    kaboomConfigMutable()->kaboomTag = KABOOM_TAG;
+    kaboomConfigMutable()->self_destruction_time_secs = 30;
+    kaboomInit();
+    // then
+    EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+
+    // when
+    timeUs_t simulationTimeUs = toWaitingState();
+    // then
+    EXPECT_EQ(60000000, kaboomTimeToSelfDestructionUs(simulationTimeUs));
 }
 
 TEST_F(KaboomTest, TestKaboomPulseTime)

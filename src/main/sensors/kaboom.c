@@ -76,7 +76,7 @@ bool kaboomIsDisabled(void)
     return isDisabled;
 }
 
-float currentSensitivity(void)
+static float currentSensitivity(void)
 {
     if (getBoxIdState(BOXKABOOM_MORE_SENSITIVITY)) {
         return moreSensitivity;
