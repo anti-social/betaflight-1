@@ -28,7 +28,7 @@ typedef struct kaboomConfig_s {
     uint32_t self_destruction_time_secs;
     uint16_t pulse_time_ms;
     ioTag_t kaboomTag;
-    ioTag_t kaboomReadyTag;
+    ioTag_t kaboomStatusTag;
 } kaboomConfig_t;
 
 PG_DECLARE(kaboomConfig_t, kaboomConfig);

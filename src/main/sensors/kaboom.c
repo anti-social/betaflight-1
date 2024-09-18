@@ -63,7 +63,7 @@ PG_RESET_TEMPLATE(kaboomConfig_t, kaboomConfig,
     .activation_time_secs = KABOOM_DEFAULT_ACTIVATION_TIME_SECS,
     .self_destruction_time_secs = KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS,
     .kaboomTag = IO_TAG_NONE,
-    .kaboomReadyTag = IO_TAG_NONE,
+    .kaboomStatusTag = IO_TAG_NONE,
 );
 
 kaboomState_t kaboomGetState(void)
@@ -161,9 +161,9 @@ void kaboomInit(void)
         IOInit(kaboomPin, OWNER_KABOOM, 0);
         IOConfigGPIO(kaboomPin, IOCFG_OUT_PP);
     }
-    kaboomReadyPin = IOGetByTag(cfg->kaboomReadyTag);
+    kaboomReadyPin = IOGetByTag(cfg->kaboomStatusTag);
     if (kaboomReadyPin != IO_NONE) {
-        IOInit(kaboomReadyPin, OWNER_KABOOM_READY_LED, 0);
+        IOInit(kaboomReadyPin, OWNER_KABOOM_STATUS_LED, 0);
         IOConfigGPIO(kaboomReadyPin, IOCFG_OUT_PP);
     }
 

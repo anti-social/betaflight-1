@@ -5137,7 +5137,7 @@ const cliResourceValue_t resourceTable[] = {
     DEFA( OWNER_PULLDOWN,      PG_PULLDOWN_CONFIG, pinPullUpDownConfig_t, ioTag, PIN_PULL_UP_DOWN_COUNT ),
 #endif
     DEFS( OWNER_KABOOM,        PG_KABOOM_CONFIG, kaboomConfig_t, kaboomTag ),
-    DEFS( OWNER_KABOOM_READY_LED, PG_KABOOM_CONFIG, kaboomConfig_t, kaboomReadyTag ),
+    DEFS( OWNER_KABOOM_STATUS_LED, PG_KABOOM_CONFIG, kaboomConfig_t, kaboomStatusTag ),
 };
 
 #undef DEFS

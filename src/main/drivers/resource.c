@@ -116,5 +116,5 @@ const char * const ownerNames[OWNER_TOTAL_COUNT] = {
     "LPUART_TX",
     "LPUART_RX",
     "KABOOM",
-    "KABOOM_READY_LED",
+    "KABOOM_STATUS_LED",
 };

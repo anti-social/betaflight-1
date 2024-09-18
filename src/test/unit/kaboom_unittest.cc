@@ -12,7 +12,7 @@ extern "C" {
     #include "sensors/kaboom.h"
 
     #define KABOOM_TAG 1
-    #define KABOOM_READY_TAG 2
+    #define KABOOM_STATUS_TAG 2
 
     static bool kaboomIoState = false;
     static bool kaboomReadyIoState = false;
@@ -43,7 +43,7 @@ protected:
         cfg->self_destruction_time_secs = 1200;
         cfg->pulse_time_ms = 1000;
         cfg->kaboomTag = IO_TAG_NONE;
-        cfg->kaboomReadyTag = IO_TAG_NONE;
+        cfg->kaboomStatusTag = IO_TAG_NONE;
 
         memset(&acc, 0, sizeof(acc));
         acc.dev.acc_1G = 1;
@@ -103,7 +103,7 @@ TEST_F(KaboomTest, TestIdleUntilArmed)
 {
     // given
     kaboomConfigMutable()->kaboomTag = KABOOM_TAG;
-    kaboomConfigMutable()->kaboomReadyTag = KABOOM_READY_TAG;
+    kaboomConfigMutable()->kaboomStatusTag = KABOOM_STATUS_TAG;
     kaboomInit();
     // then
     EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
@@ -414,7 +414,7 @@ TEST_F(KaboomTest, TestKaboomDisabled)
 {
     // given
     kaboomConfigMutable()->kaboomTag = KABOOM_TAG;
-    kaboomConfigMutable()->kaboomReadyTag = KABOOM_READY_TAG;
+    kaboomConfigMutable()->kaboomStatusTag = KABOOM_STATUS_TAG;
     kaboomInit();
     // then
     EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
@@ -591,7 +591,7 @@ extern "C" {
     void IOWrite(IO_t io, bool value) {
         if ((long) io == KABOOM_TAG) {
             kaboomIoState = value;
-        } else if ((long) io == KABOOM_READY_TAG) {
+        } else if ((long) io == KABOOM_STATUS_TAG) {
             kaboomReadyIoState = value;
         }
     }
