@@ -17,8 +17,10 @@
 #define KABOOM_DEFAULT_SENSITIVITY 8
 #define KABOOM_DEFAULT_MORE_SENSITIVITY 4
 #define KABOOM_DEFAULT_ACTIVATION_TIME_SECS 60
-#define KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS 1200
 #define KABOOM_DEFAULT_PULSE_TIME_US 1000000
+#define KABOOM_MIN_PULSE_TIME_US 10000
+#define KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS 1200
+#define KABOOM_SELF_DESTRUCTION_REPEAT_INTERVAL_MULTIPLIER 5
 
 // If a user switches kaboom box 3 times in a 5 second interval
 // we perceive this action as a start of an activation
@@ -30,7 +32,7 @@ static float moreSensitivity = (float) (KABOOM_DEFAULT_MORE_SENSITIVITY * KABOOM
 static timeUs_t activationTimeUs = KABOOM_DEFAULT_ACTIVATION_TIME_SECS * US_IN_SEC;
 static timeUs_t selfDestructionTimeUs = KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS * US_IN_SEC;
 static timeUs_t pulseTimeUs = KABOOM_DEFAULT_PULSE_TIME_US;
-static timeUs_t selfDestructionRepeatIntervalUs = KABOOM_DEFAULT_PULSE_TIME_US * 5;
+static timeUs_t selfDestructionRepeatIntervalUs = KABOOM_DEFAULT_PULSE_TIME_US * KABOOM_SELF_DESTRUCTION_REPEAT_INTERVAL_MULTIPLIER;
 static IO_t kaboomPin = IO_NONE;
 static IO_t kaboomReadyPin = IO_NONE;
 
@@ -154,7 +156,10 @@ void kaboomInit(void)
         selfDestructionTimeUs = activationTimeUs + 60 * US_IN_SEC;
     }
     pulseTimeUs = cfg->pulse_time_ms * 1000;
-    selfDestructionRepeatIntervalUs = pulseTimeUs * 5;
+    if (pulseTimeUs < KABOOM_MIN_PULSE_TIME_US) {
+        pulseTimeUs = KABOOM_DEFAULT_PULSE_TIME_US;
+    }
+    selfDestructionRepeatIntervalUs = pulseTimeUs * KABOOM_SELF_DESTRUCTION_REPEAT_INTERVAL_MULTIPLIER;
 
     kaboomPin = IOGetByTag(cfg->kaboomTag);
     if (kaboomPin != IO_NONE) {

@@ -430,6 +430,41 @@ TEST_F(KaboomTest, TestKaboomPulseTime)
     EXPECT_EQ(false, kaboomIoState);
 }
 
+TEST_F(KaboomTest, TestKaboomDefaultPulseTime)
+{
+    // given
+    kaboomConfigMutable()->kaboomTag = KABOOM_TAG;
+    kaboomConfigMutable()->pulse_time_ms = 0;
+    kaboomInit();
+    // then
+    EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIsDisabled());
+
+    timeUs_t simulationTimeUs = toWaitingState();
+
+    // when
+    simulationKaboomBoxState = true;
+    kaboomCheck(simulationTimeUs);
+    // then
+    EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
+    EXPECT_EQ(true, kaboomIoState);
+
+    // when
+    simulationKaboomBoxState = false;
+    simulationTimeUs += 999999;
+    kaboomCheck(simulationTimeUs);
+    // then
+    EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
+    EXPECT_EQ(true, kaboomIoState);
+
+    // when
+    simulationTimeUs += 1;
+    kaboomCheck(simulationTimeUs);
+    // then
+    EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+}
+
 TEST_F(KaboomTest, TestKaboomDisabled)
 {
     // given
