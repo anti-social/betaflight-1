@@ -17,10 +17,9 @@
 #define KABOOM_DEFAULT_SENSITIVITY 8
 #define KABOOM_DEFAULT_MORE_SENSITIVITY 4
 #define KABOOM_DEFAULT_ACTIVATION_TIME_SECS 60
-#define KABOOM_DEFAULT_PULSE_TIME_US 1000000
-#define KABOOM_MIN_PULSE_TIME_US 10000
+#define KABOOM_DEFAULT_PULSE_TIME_MS 1000
 #define KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS 1200
-#define KABOOM_SELF_DESTRUCTION_REPEAT_INTERVAL_MULTIPLIER 5
+#define KABOOM_SELF_DESTRUCTION_REPEAT_INTERVAL_US 5000000
 
 // If a user switches kaboom box 3 times in a 5 second interval
 // we perceive this action as a start of an activation
@@ -31,8 +30,7 @@ static float sensitivity = (float) (KABOOM_DEFAULT_SENSITIVITY * KABOOM_DEFAULT_
 static float moreSensitivity = (float) (KABOOM_DEFAULT_MORE_SENSITIVITY * KABOOM_DEFAULT_MORE_SENSITIVITY);
 static timeUs_t activationTimeUs = KABOOM_DEFAULT_ACTIVATION_TIME_SECS * US_IN_SEC;
 static timeUs_t selfDestructionTimeUs = KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS * US_IN_SEC;
-static timeUs_t pulseTimeUs = KABOOM_DEFAULT_PULSE_TIME_US;
-static timeUs_t selfDestructionRepeatIntervalUs = KABOOM_DEFAULT_PULSE_TIME_US * KABOOM_SELF_DESTRUCTION_REPEAT_INTERVAL_MULTIPLIER;
+static timeUs_t pulseTimeUs = KABOOM_DEFAULT_PULSE_TIME_MS * 1000;
 static IO_t kaboomPin = IO_NONE;
 static IO_t kaboomReadyPin = IO_NONE;
 
@@ -66,6 +64,7 @@ PG_RESET_TEMPLATE(kaboomConfig_t, kaboomConfig,
     .self_destruction_time_secs = KABOOM_DEFAULT_SELF_DESTRUCTION_TIME_SECS,
     .kaboomTag = IO_TAG_NONE,
     .kaboomStatusTag = IO_TAG_NONE,
+    .pulse_time_ms = KABOOM_DEFAULT_PULSE_TIME_MS,
 );
 
 kaboomState_t kaboomGetState(void)
@@ -148,18 +147,29 @@ void kaboomInit(void)
     const kaboomConfig_t* cfg = kaboomConfig();
 
     float acc1GSquared = acc.dev.acc_1G * acc.dev.acc_1G;
-    sensitivity = ((float) (cfg->sensitivity * cfg->sensitivity)) * acc1GSquared;
-    moreSensitivity = ((float) (cfg->more_sensitivity * cfg->more_sensitivity)) * acc1GSquared;
-    activationTimeUs = cfg->activation_time_secs * US_IN_SEC;
-    selfDestructionTimeUs = cfg->self_destruction_time_secs * US_IN_SEC;
-    if (selfDestructionTimeUs < activationTimeUs + 60 * US_IN_SEC) {
-        selfDestructionTimeUs = activationTimeUs + 60 * US_IN_SEC;
+
+    if (cfg->sensitivity != 0) {
+        sensitivity = ((float) (cfg->sensitivity * cfg->sensitivity)) * acc1GSquared;
     }
-    pulseTimeUs = cfg->pulse_time_ms * 1000;
-    if (pulseTimeUs < KABOOM_MIN_PULSE_TIME_US) {
-        pulseTimeUs = KABOOM_DEFAULT_PULSE_TIME_US;
+
+    if (cfg->more_sensitivity != 0) {
+        moreSensitivity = ((float) (cfg->more_sensitivity * cfg->more_sensitivity)) * acc1GSquared;
     }
-    selfDestructionRepeatIntervalUs = pulseTimeUs * KABOOM_SELF_DESTRUCTION_REPEAT_INTERVAL_MULTIPLIER;
+
+    if (cfg->activation_time_secs != 0) {
+        activationTimeUs = cfg->activation_time_secs * US_IN_SEC;
+    }
+
+    if (cfg->self_destruction_time_secs != 0) {
+        selfDestructionTimeUs = cfg->self_destruction_time_secs * US_IN_SEC;
+        if (selfDestructionTimeUs < activationTimeUs + 60 * US_IN_SEC) {
+            selfDestructionTimeUs = activationTimeUs + 60 * US_IN_SEC;
+        }
+    }
+
+    if (cfg->pulse_time_ms != 0) {
+        pulseTimeUs = cfg->pulse_time_ms * 1000;
+    }
 
     kaboomPin = IOGetByTag(cfg->kaboomTag);
     if (kaboomPin != IO_NONE) {
@@ -241,7 +251,7 @@ void kaboomCheck(timeUs_t currentTimeUs)
 
     if (!isDisabled) {
         if (armDurationUs >= selfDestructionTimeUs) {
-            if ((armDurationUs - selfDestructionTimeUs) % selfDestructionRepeatIntervalUs < pulseTimeUs) {
+            if ((armDurationUs - selfDestructionTimeUs) % KABOOM_SELF_DESTRUCTION_REPEAT_INTERVAL_US < pulseTimeUs) {
                 kaboomState = KABOOM_STATE_KABOOM;
             }
         }

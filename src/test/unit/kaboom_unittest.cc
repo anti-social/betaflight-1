@@ -14,6 +14,8 @@ extern "C" {
     #define KABOOM_TAG 1
     #define KABOOM_STATUS_TAG 2
 
+    extern const kaboomConfig_t pgResetTemplate_kaboomConfig;
+
     static bool kaboomIoState = false;
     static bool kaboomReadyIoState = false;
 
@@ -36,14 +38,7 @@ protected:
         simulationKaboomMoreSensitivityBoxState = false;
 
         kaboomConfig_t* cfg = kaboomConfigMutable();
-        memset(cfg, 0, sizeof(kaboomConfig_t));
-        cfg->sensitivity = 5;
-        cfg->more_sensitivity = 2;
-        cfg->activation_time_secs = 60;
-        cfg->self_destruction_time_secs = 1200;
-        cfg->pulse_time_ms = 1000;
-        cfg->kaboomTag = IO_TAG_NONE;
-        cfg->kaboomStatusTag = IO_TAG_NONE;
+        *cfg = pgResetTemplate_kaboomConfig;
 
         memset(&acc, 0, sizeof(acc));
         acc.dev.acc_1G = 1;
@@ -272,18 +267,18 @@ TEST_F(KaboomTest, TestKaboomSensitivity)
     timeUs_t simulationTimeUs = toWaitingState();
 
     // when
-    acc.accADC[0] = 2.0;
-    acc.accADC[1] = 2.0;
-    acc.accADC[2] = 2.0;
+    acc.accADC[0] = 4.0;
+    acc.accADC[1] = 4.0;
+    acc.accADC[2] = 4.0;
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
     EXPECT_EQ(false, kaboomIoState);
 
     // when
-    acc.accADC[0] = 5.0;
-    acc.accADC[1] = 0.0;
-    acc.accADC[2] = 0.0;
+    acc.accADC[0] = 7.0;
+    acc.accADC[1] = 3.0;
+    acc.accADC[2] = 3.0;
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
@@ -301,10 +296,10 @@ TEST_F(KaboomTest, TestKaboomMoreSensitivity)
 
     timeUs_t simulationTimeUs = toWaitingState();
 
-    EXPECT_EQ(5.0, kaboomCurrentGForce());
+    EXPECT_EQ(8.0, kaboomCurrentGForce());
 
     // when
-    acc.accADC[0] = 2.0;
+    acc.accADC[0] = 3.0;
     acc.accADC[1] = 2.0;
     acc.accADC[2] = 2.0;
     simulationKaboomMoreSensitivityBoxState = true;
@@ -313,7 +308,7 @@ TEST_F(KaboomTest, TestKaboomMoreSensitivity)
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
     EXPECT_EQ(true, kaboomIoState);
 
-    EXPECT_EQ(2.0, kaboomCurrentGForce());
+    EXPECT_EQ(4.0, kaboomCurrentGForce());
 }
 
 TEST_F(KaboomTest, TestKaboomSelfDestruction)
@@ -430,41 +425,6 @@ TEST_F(KaboomTest, TestKaboomPulseTime)
     EXPECT_EQ(false, kaboomIoState);
 }
 
-TEST_F(KaboomTest, TestKaboomDefaultPulseTime)
-{
-    // given
-    kaboomConfigMutable()->kaboomTag = KABOOM_TAG;
-    kaboomConfigMutable()->pulse_time_ms = 0;
-    kaboomInit();
-    // then
-    EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
-    EXPECT_EQ(false, kaboomIsDisabled());
-
-    timeUs_t simulationTimeUs = toWaitingState();
-
-    // when
-    simulationKaboomBoxState = true;
-    kaboomCheck(simulationTimeUs);
-    // then
-    EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
-    EXPECT_EQ(true, kaboomIoState);
-
-    // when
-    simulationKaboomBoxState = false;
-    simulationTimeUs += 999999;
-    kaboomCheck(simulationTimeUs);
-    // then
-    EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
-    EXPECT_EQ(true, kaboomIoState);
-
-    // when
-    simulationTimeUs += 1;
-    kaboomCheck(simulationTimeUs);
-    // then
-    EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
-    EXPECT_EQ(false, kaboomIoState);
-}
-
 TEST_F(KaboomTest, TestKaboomDisabled)
 {
     // given
@@ -496,7 +456,7 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     EXPECT_EQ(true, kaboomIsDisabled());
 
     // when
-    acc.accADC[0] = 5.0;
+    acc.accADC[0] = 9.0;
     acc.accADC[1] = 0.0;
     acc.accADC[2] = 0.0;
     simulationKaboomDisabledBoxState = true;
@@ -509,7 +469,7 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     EXPECT_EQ(true, kaboomIsDisabled());
 
     // when
-    acc.accADC[0] = 2.0;
+    acc.accADC[0] = 4.0;
     acc.accADC[1] = 2.0;
     acc.accADC[2] = 2.0;
     simulationKaboomMoreSensitivityBoxState = true;
