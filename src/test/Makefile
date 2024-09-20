@@ -226,6 +226,7 @@ kaboom_unittest_SRC := \
 kaboom_unittest_DEFINES := \
 		USE_ACC= \
 		USE_VIRTUAL_ACC= \
+		USE_64BIT_TIME=
 
 link_quality_unittest_SRC := \
 		$(USER_DIR)/osd/osd.c \

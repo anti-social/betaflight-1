@@ -26,6 +26,8 @@
 
 #include "build/atomic.h"
 
+#include "common/time.h"
+
 #include "drivers/io.h"
 #include "drivers/light_led.h"
 #include "drivers/nvic.h"
@@ -109,7 +111,7 @@ void SysTick_Handler(void)
 
 // Return system uptime in microseconds (rollover in 70minutes)
 
-MMFLASH_CODE_NOINLINE uint32_t microsISR(void)
+MMFLASH_CODE_NOINLINE timeUs_t microsISR(void)
 {
     register uint32_t ms, pending, cycle_cnt;
 
@@ -136,7 +138,7 @@ MMFLASH_CODE_NOINLINE uint32_t microsISR(void)
     return ((ms + pending) * 1000) + (usTicks * 1000 - cycle_cnt) / usTicks;
 }
 
-uint32_t micros(void)
+timeUs_t micros(void)
 {
     register uint32_t ms, cycle_cnt;
 
@@ -193,13 +195,13 @@ uint32_t millis(void)
 }
 
 #if 1
-void delayMicroseconds(uint32_t us)
+void delayMicroseconds(timeUs_t us)
 {
     uint32_t now = micros();
     while (micros() - now < us);
 }
 #else
-void delayMicroseconds(uint32_t us)
+void delayMicroseconds(timeUs_t us)
 {
     uint32_t elapsed = 0;
     uint32_t lastCount = SysTick->VAL;

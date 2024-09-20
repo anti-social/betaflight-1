@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include "common/time.h"
+
 struct dispatchEntry_s;
 typedef void dispatchFunc(struct dispatchEntry_s* self);
 
@@ -32,5 +34,5 @@ typedef struct dispatchEntry_s {
 
 bool dispatchIsEnabled(void);
 void dispatchEnable(void);
-void dispatchProcess(uint32_t currentTime);
+void dispatchProcess(timeUs_t currentTime);
 void dispatchAdd(dispatchEntry_t *entry, int delayUs);
