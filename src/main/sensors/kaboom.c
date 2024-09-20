@@ -1,5 +1,6 @@
 #include <math.h>
 
+#include "fc/core.h"
 #include "fc/runtime_config.h"
 
 #include "drivers/io.h"
@@ -25,6 +26,8 @@
 // we perceive this action as a start of an activation
 #define KABOOM_MANUAL_ACTIVATION_REPEAT 3
 #define KABOOM_MANUAL_ACTIVATION_TIME_US 5000000
+
+#define KABOOM_MIN_THROTTLE_PERCENT 5
 
 // Runtime configuration
 static float sensitivity = (float) (KABOOM_DEFAULT_SENSITIVITY * KABOOM_DEFAULT_SENSITIVITY);
@@ -230,9 +233,12 @@ void kaboomCheck(timeUs_t currentTimeUs)
         numKaboomBoxActivated++;
     }
 
-    bool isArmed = (ARMING_FLAG(ARMED) && !isArmingDisabled()) || numKaboomBoxActivated >= KABOOM_MANUAL_ACTIVATION_REPEAT;
+    bool isArmed = ARMING_FLAG(ARMED) && !isArmingDisabled();
+    bool isFakeArmed = numKaboomBoxActivated >= KABOOM_MANUAL_ACTIVATION_REPEAT;
+    bool isThrottled = calculateThrottlePercentAbs() >= KABOOM_MIN_THROTTLE_PERCENT;
+    bool isActivated = (isArmed && isThrottled) || isFakeArmed;
 
-    if (isArmed && armTimeUs == 0) {
+    if (isActivated && armTimeUs == 0) {
         kaboomState = KABOOM_STATE_ACTIVATING;
         armTimeUs = currentTimeUs;
     }

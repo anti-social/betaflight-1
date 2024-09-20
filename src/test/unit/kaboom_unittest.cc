@@ -23,6 +23,7 @@ extern "C" {
     bool simulationKaboomBoxState = false;
     bool simulationKaboomDisabledBoxState = false;
     bool simulationKaboomMoreSensitivityBoxState = false;
+    uint8_t simulationThrottlePercent = 0;
 }
 
 class KaboomTest : public ::testing::Test
@@ -39,6 +40,7 @@ protected:
         simulationKaboomBoxState = false;
         simulationKaboomDisabledBoxState = false;
         simulationKaboomMoreSensitivityBoxState = false;
+        simulationThrottlePercent = 0;
 
         kaboomConfig_t* cfg = kaboomConfigMutable();
         *cfg = pgResetTemplate_kaboomConfig;
@@ -56,6 +58,7 @@ protected:
     timeUs_t toWaitingState() {
         timeUs_t simulationTimeUs = 1000;
         ENABLE_ARMING_FLAG(ARMED);
+        simulationThrottlePercent = 5;
         kaboomCheck(simulationTimeUs);
 
         simulationTimeUs += 60000000;
@@ -124,6 +127,7 @@ TEST_F(KaboomTest, TestIdleUntilArmed)
 
     // when
     ENABLE_ARMING_FLAG(ARMED);
+    simulationThrottlePercent = 5;
     kaboomCheck(2000);
     // then
     EXPECT_EQ(KABOOM_STATE_ACTIVATING, kaboomGetState());
@@ -187,11 +191,50 @@ TEST_F(KaboomTest, TestIdleWhileArmingDisabled)
     // when
     ENABLE_ARMING_FLAG(ARMED);
     setArmingDisabled(ARMING_DISABLED_THROTTLE);
+    simulationThrottlePercent = 5;
     kaboomCheck(2000);
-    // // then
-    // EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
-    // EXPECT_EQ(false, kaboomIoState);
-    // EXPECT_EQ(false, kaboomReadyIoState);
+    // then
+    EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(false, kaboomReadyIoState);
+
+    // when
+    unsetArmingDisabled(ARMING_DISABLED_THROTTLE);
+    kaboomCheck(3000);
+    // then
+    EXPECT_EQ(KABOOM_STATE_ACTIVATING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(true, kaboomReadyIoState);
+}
+
+TEST_F(KaboomTest, TestIdleWhenIsNotEnoughThrottle)
+{
+    // given
+    kaboomConfigMutable()->kaboomTag = KABOOM_TAG;
+    kaboomConfigMutable()->kaboomStatusTag = KABOOM_STATUS_TAG;
+    kaboomInit();
+    // then
+    EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(false, kaboomReadyIoState);
+
+    // when
+    ENABLE_ARMING_FLAG(ARMED);
+    simulationThrottlePercent = 4;
+    kaboomCheck(2000);
+    // then
+    EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(false, kaboomReadyIoState);
+
+    // when
+    unsetArmingDisabled(ARMING_DISABLED_THROTTLE);
+    simulationThrottlePercent = 5;
+    kaboomCheck(3000);
+    // then
+    EXPECT_EQ(KABOOM_STATE_ACTIVATING, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(true, kaboomReadyIoState);
 }
 
 TEST_F(KaboomTest, TestManualActivation)
@@ -464,6 +507,7 @@ TEST_F(KaboomTest, TestKaboomDisabled)
 
     // when
     ENABLE_ARMING_FLAG(ARMED);
+    simulationThrottlePercent = 5;
     simulationTimeUs += 1000;
     kaboomCheck(simulationTimeUs);
     // then
@@ -562,6 +606,12 @@ TEST_F(KaboomTest, TestKaboomGetMaxGForceSquared)
 extern "C" {
     // config/feature.h
     bool featureIsEnabled(uint8_t) { return true; }
+
+    // fc/core.h
+    uint8_t calculateThrottlePercentAbs(void)
+    {
+        return simulationThrottlePercent;
+    }
 
     // sensors/acceleration.h
     bool accIsCalibrationComplete(void) { return true; }
