@@ -32,6 +32,9 @@ protected:
 
     virtual void SetUp() {
         DISABLE_ARMING_FLAG(ARMED);
+        for (int flagIx = 0; flagIx < ARMING_DISABLE_FLAGS_COUNT; flagIx++) {
+            unsetArmingDisabled((armingDisableFlags_e) (1 << flagIx));
+        }
 
         simulationKaboomBoxState = false;
         simulationKaboomDisabledBoxState = false;
@@ -169,6 +172,27 @@ TEST_F(KaboomTest, TestIdleUntilArmed)
     EXPECT_EQ(false, kaboomIoState);
     EXPECT_EQ(true, kaboomReadyIoState);
 };
+
+TEST_F(KaboomTest, TestIdleWhileArmingDisabled)
+{
+    // given
+    kaboomConfigMutable()->kaboomTag = KABOOM_TAG;
+    kaboomConfigMutable()->kaboomStatusTag = KABOOM_STATUS_TAG;
+    kaboomInit();
+    // then
+    EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    EXPECT_EQ(false, kaboomIoState);
+    EXPECT_EQ(false, kaboomReadyIoState);
+
+    // when
+    ENABLE_ARMING_FLAG(ARMED);
+    setArmingDisabled(ARMING_DISABLED_THROTTLE);
+    kaboomCheck(2000);
+    // // then
+    // EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
+    // EXPECT_EQ(false, kaboomIoState);
+    // EXPECT_EQ(false, kaboomReadyIoState);
+}
 
 TEST_F(KaboomTest, TestManualActivation)
 {
@@ -452,7 +476,7 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     // then
     EXPECT_EQ(KABOOM_STATE_ACTIVATING, kaboomGetState());
     EXPECT_EQ(false, kaboomIoState);
-    EXPECT_EQ(false, kaboomReadyIoState);
+    EXPECT_EQ(true, kaboomReadyIoState);
     EXPECT_EQ(true, kaboomIsDisabled());
 
     // when

@@ -26,6 +26,7 @@
 #define KABOOM_MANUAL_ACTIVATION_REPEAT 3
 #define KABOOM_MANUAL_ACTIVATION_TIME_US 5000000
 
+// Runtime configuration
 static float sensitivity = (float) (KABOOM_DEFAULT_SENSITIVITY * KABOOM_DEFAULT_SENSITIVITY);
 static float moreSensitivity = (float) (KABOOM_DEFAULT_MORE_SENSITIVITY * KABOOM_DEFAULT_MORE_SENSITIVITY);
 static timeUs_t activationTimeUs = KABOOM_DEFAULT_ACTIVATION_TIME_SECS * US_IN_SEC;
@@ -47,6 +48,7 @@ static bool isDisabled = false;
 static bool prevKaboomBoxState = false;
 static timeUs_t kaboomStartTimeUs = 0;
 static timeUs_t kaboomSelfDestructionEtaUs = 0;
+static bool kaboomReadyPinState = false;
 
 // Variables to track a manual activation
 static uint8_t numKaboomBoxActivated = 0;
@@ -108,7 +110,6 @@ timeUs_t kaboomTimeToSelfDestructionUs(timeUs_t currentTimeUs) {
 }
 
 static void setKaboomReadyPin(bool value) {
-    static bool kaboomReadyPinState = false;
     if (value != kaboomReadyPinState) {
         IOWrite(kaboomReadyPin, value);
         kaboomReadyPinState = value;
@@ -189,6 +190,7 @@ void kaboomInit(void)
     numKaboomBoxActivated = 0;
     kaboomBoxActivatedTimeUs = 0;
     armTimeUs = 0;
+    kaboomReadyPinState = false;
 
     for (int i = 0; i < KABOOM_G_FORCE_MEASURES_COUNT; i++) {
         gForceSquaredMeasures[i] = 0.0;
@@ -228,7 +230,7 @@ void kaboomCheck(timeUs_t currentTimeUs)
         numKaboomBoxActivated++;
     }
 
-    bool isArmed = ARMING_FLAG(ARMED) || numKaboomBoxActivated >= KABOOM_MANUAL_ACTIVATION_REPEAT;
+    bool isArmed = (ARMING_FLAG(ARMED) && !isArmingDisabled()) || numKaboomBoxActivated >= KABOOM_MANUAL_ACTIVATION_REPEAT;
 
     if (isArmed && armTimeUs == 0) {
         kaboomState = KABOOM_STATE_ACTIVATING;
