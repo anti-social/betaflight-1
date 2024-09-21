@@ -4934,6 +4934,18 @@ static void cliVersion(const char *cmdName, char *cmdline)
     printVersion(true);
 }
 
+static void cliReleaseName(const char *cmdName, char *cmdline)
+{
+    UNUSED(cmdName);
+    UNUSED(cmdline);
+
+    if (releaseName) {
+        cliPrintLinef("%s", releaseName);
+    } else {
+        cliPrintLine("unknown");
+    }
+}
+
 #ifdef USE_RC_SMOOTHING_FILTER
 static void cliRcSmoothing(const char *cmdName, char *cmdline)
 {
@@ -6598,6 +6610,7 @@ const clicmd_t cmdTable[] = {
     CLI_COMMAND_DEF("timer", "show/set timers", "<> | <pin> list | <pin> [af<alternate function>|none|<option(deprecated)>] | list | show", cliTimer),
 #endif
     CLI_COMMAND_DEF("version", "show version", NULL, cliVersion),
+    CLI_COMMAND_DEF("release_name", "show version", NULL, cliReleaseName),
 #ifdef USE_VTX_CONTROL
 #ifdef MINIMAL_CLI
     CLI_COMMAND_DEF("vtx", "vtx channels on switch", NULL, cliVtx),

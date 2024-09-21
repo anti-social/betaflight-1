@@ -36,7 +36,7 @@ const char * const buildTime = __TIME__;
     const char * const buildKey = NULL;
 #endif
 
-#if defined(BUILD_KEY) && defined(RELEASE_NAME)
+#if defined(RELEASE_NAME)
     const char * const releaseName = STR(RELEASE_NAME);
 #else
     const char * const releaseName = NULL;

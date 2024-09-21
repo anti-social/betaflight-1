@@ -135,6 +135,8 @@ ifeq ($(shell git diff --shortstat),)
 REVISION := $(shell git log -1 --format="%h")
 endif
 
+RELEASE_NAME := $(shell git describe --tags --match 'v*' --dirty | cut -c 2- -)
+
 LD_FLAGS        :=
 EXTRA_LD_FLAGS  :=
 
@@ -267,6 +269,7 @@ CFLAGS     += $(ARCH_FLAGS) \
               -D'__FORKNAME__="$(FORKNAME)"' \
               -D'__TARGET__="$(TARGET)"' \
               -D'__REVISION__="$(REVISION)"' \
+              -D'RELEASE_NAME=$(RELEASE_NAME)' \
               $(CONFIG_REVISION_DEFINE) \
               -pipe \
               -MMD -MP \
@@ -316,7 +319,7 @@ ifeq ($(REV),yes)
 TARGET_NAME := $(TARGET_NAME)_$(REVISION)
 endif
 
-TARGET_FULLNAME = $(FORKNAME)_$(FC_VER)_$(TARGET_NAME)
+TARGET_FULLNAME = $(FORKNAME)_$(RELEASE_NAME)_$(TARGET_NAME)
 #
 # Things we will build
 #
