@@ -133,6 +133,7 @@ COMMON_SRC = \
             sensors/gyro_init.c \
             sensors/initialisation.c \
             sensors/kaboom.c \
+            sensors/kaboom_control.c \
             blackbox/blackbox.c \
             blackbox/blackbox_encoding.c \
             blackbox/blackbox_io.c \

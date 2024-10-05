@@ -12,14 +12,6 @@ typedef enum kaboomState_e {
     KABOOM_STATE_KABOOM,
 } kaboomState_t;
 
-kaboomState_t kaboomGetState(void);
-bool kaboomIsDisabled(void);
-float kaboomCurrentGForce(void);
-float kaboomGetMaxGForceSquared(void);
-timeUs_t kaboomTimeToSelfDestructionUs(timeUs_t currentTimeUs);
-void kaboomInit(void);
-void kaboomCheck(timeUs_t currentTimeUs);
-
 #if defined(USE_ACC)
 typedef struct kaboomConfig_s {
     uint8_t sensitivity;
@@ -33,3 +25,11 @@ typedef struct kaboomConfig_s {
 
 PG_DECLARE(kaboomConfig_t, kaboomConfig);
 #endif
+
+kaboomState_t kaboomGetState(void);
+bool kaboomIsDisabled(void);
+float kaboomCurrentGForce(void);
+float kaboomGetMaxGForceSquared(void);
+timeUs_t kaboomTimeToSelfDestructionUs(timeUs_t currentTimeUs);
+void kaboomInit(void);
+void kaboomCheck(timeUs_t currentTimeUs);

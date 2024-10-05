@@ -168,6 +168,7 @@ bool cliMode = false;
 #include "sensors/gyro.h"
 #include "sensors/gyro_init.h"
 #include "sensors/kaboom.h"
+#include "sensors/kaboom_control.h"
 #include "sensors/sensors.h"
 
 #include "telemetry/frsky_hub.h"
@@ -182,8 +183,8 @@ static serialPort_t *cliPort = NULL;
 #define CLI_OUT_BUFFER_SIZE 64
 
 static bufWriter_t cliWriterDesc;
-static bufWriter_t *cliWriter = NULL;
-static bufWriter_t *cliErrorWriter = NULL;
+STATIC_UNIT_TESTED bufWriter_t *cliWriter = NULL;
+STATIC_UNIT_TESTED bufWriter_t *cliErrorWriter = NULL;
 static uint8_t cliWriteBuffer[CLI_OUT_BUFFER_SIZE];
 
 static char cliBuffer[CLI_IN_BUFFER_SIZE];
@@ -285,18 +286,6 @@ static const char *configurationStates[] = {
     [CONFIGURATION_STATE_UNCONFIGURED] = "UNCONFIGURED",
     [CONFIGURATION_STATE_CONFIGURED] = "CONFIGURED"
 };
-
-typedef enum dumpFlags_e {
-    DUMP_MASTER = (1 << 0),
-    DUMP_PROFILE = (1 << 1),
-    DUMP_RATES = (1 << 2),
-    DUMP_ALL = (1 << 3),
-    DO_DIFF = (1 << 4),
-    SHOW_DEFAULTS = (1 << 5),
-    HIDE_UNUSED = (1 << 6),
-    HARDWARE_ONLY = (1 << 7),
-    BARE = (1 << 8),
-} dumpFlags_t;
 
 typedef bool printFn(dumpFlags_t dumpMask, bool equalsDefault, const char *format, ...);
 
@@ -2576,6 +2565,112 @@ static void cliFlashRead(const char *cmdName, char *cmdline)
 }
 #endif // USE_FLASH_TOOLS
 #endif // USE_FLASHFS
+
+STATIC_UNIT_TESTED void printKaboomControl(
+    dumpFlags_t dumpMask,
+    const kaboomControlConfig_t *cfg,
+    const kaboomControlConfig_t *cfgDefault,
+    const char *headingStr
+) {
+    const char *format = "kaboom_control %u %u %u %u %u";
+    headingStr = cliPrintSectionHeading(dumpMask, false, headingStr);
+
+    bool equalsDefault = false;
+    for (uint8_t i = 0; i < KABOOM_CONTROL_COUNT; i++) {
+        const kaboomControlCondition_t *ctl = &cfg->controls[i];
+        if (cfgDefault) {
+            const kaboomControlCondition_t *ctlDefault = &cfgDefault->controls[i];
+            equalsDefault = !memcmp(ctl, ctlDefault, sizeof(*ctl));
+            headingStr = cliPrintSectionHeading(dumpMask, !equalsDefault, headingStr);
+            cliDefaultPrintLinef(
+                dumpMask,
+                equalsDefault,
+                format,
+                i,
+                ctlDefault->auxChannelIndex,
+                ctlDefault->control,
+                MODE_STEP_TO_CHANNEL_VALUE(ctlDefault->range.startStep),
+                MODE_STEP_TO_CHANNEL_VALUE(ctlDefault->range.endStep)
+            );
+        }
+        cliDumpPrintLinef(
+            dumpMask,
+            equalsDefault,
+            format,
+            i,
+            ctl->auxChannelIndex,
+            ctl->control,
+            MODE_STEP_TO_CHANNEL_VALUE(ctl->range.startStep),
+            MODE_STEP_TO_CHANNEL_VALUE(ctl->range.endStep)
+        );
+    }
+}
+
+STATIC_UNIT_TESTED void cliKaboomControl(const char * cmdName, char * cmdline) {
+    UNUSED(cmdName);
+    UNUSED(cmdline);
+
+    const char *format = "kaboom_control %u %u %u %u %u";
+
+    if (isEmpty(cmdline)) {
+        printKaboomControl(DUMP_MASTER, kaboomControlConfig(), NULL, NULL);
+        return;
+    }
+
+    const char *curArg = cmdline;
+    long int ix = strtol(curArg, (char **)&curArg, 10);
+    if (ix < 0 || ix >= KABOOM_CONTROL_COUNT) {
+        cliShowArgumentRangeError(cmdName, "INDEX", 0, KABOOM_CONTROL_COUNT - 1);
+        return;
+    }
+
+    kaboomControlCondition_t *ctl = &kaboomControlConfigMutable()->controls[ix];
+    long int val;
+
+    if (!*curArg) {
+        cliShowInvalidArgumentCountError(cmdName);
+        return;
+    }
+    val = strtol(curArg, (char **)&curArg, 10);
+    if (val < 0 || val >= MAX_AUX_CHANNEL_COUNT) {
+        cliShowArgumentRangeError(cmdName, "CHANNEL_INDEX", 0, MAX_AUX_CHANNEL_COUNT - 1);
+        return;
+    }
+    long int auxChannelIndex = val;
+
+    if (!*curArg) {
+        cliShowInvalidArgumentCountError(cmdName);
+        return;
+    }
+    val = strtol(curArg, (char **)&curArg, 10);
+    if (val < 0 || val >= KABOOM_CONTROL_COUNT) {
+        cliShowArgumentRangeError(cmdName, "KABOOM_CONTROL", 0, KABOOM_CONTROL_COUNT - 1);
+        return;
+    }
+    long int control = val;
+
+    ctl->auxChannelIndex = auxChannelIndex;
+    ctl->control = control;
+
+    uint8_t validRangeArgCount = 0;
+    curArg = processChannelRangeArgs(curArg, &ctl->range, &validRangeArgCount);
+    if (validRangeArgCount != 2) {
+        memset(ctl, 0, sizeof(kaboomControlCondition_t));
+        cliShowInvalidArgumentCountError(cmdName);
+        return;
+    }
+
+    cliDumpPrintLinef(
+        0,
+        false,
+        format,
+        ix,
+        ctl->auxChannelIndex,
+        ctl->control,
+        MODE_STEP_TO_CHANNEL_VALUE(ctl->range.startStep),
+        MODE_STEP_TO_CHANNEL_VALUE(ctl->range.endStep)
+    );
+}
 
 #ifdef USE_VTX_CONTROL
 static void printVtx(dumpFlags_t dumpMask, const vtxConfig_t *vtxConfig, const vtxConfig_t *vtxConfigDefault, const char *headingStr)
@@ -6322,6 +6417,8 @@ static void printConfig(const char *cmdName, char *cmdline, bool doDiff)
 
             printRxRange(dumpMask, rxChannelRangeConfigs_CopyArray, rxChannelRangeConfigs(0), "rxrange");
 
+            printKaboomControl(dumpMask, &kaboomControlConfig_Copy, kaboomControlConfig(), "kaboom_control");
+
 #ifdef USE_VTX_TABLE
             printVtxTable(dumpMask, &vtxTableConfig_Copy, vtxTableConfig(), "vtxtable");
 #endif
@@ -6540,6 +6637,7 @@ const clicmd_t cmdTable[] = {
     CLI_COMMAND_DEF("gyroregisters", "dump gyro config registers contents", NULL, cliDumpGyroRegisters),
 #endif
     CLI_COMMAND_DEF("help", "display command help", "[search string]", cliHelp),
+    CLI_COMMAND_DEF("kaboom_control", "kaboom channels on switch", "<index> <aux_channel> <kaboom_control> <start_range> <end_range>", cliKaboomControl),
 #ifdef USE_LED_STRIP_STATUS_MODE
         CLI_COMMAND_DEF("led", "configure leds", NULL, cliLed),
 #endif

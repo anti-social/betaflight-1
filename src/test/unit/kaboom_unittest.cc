@@ -19,10 +19,10 @@ extern "C" {
     static bool kaboomIoState = false;
     static bool kaboomReadyIoState = false;
 
-    uint8_t simulationKaboomPinioBoxId = BOXKABOOM;
-    bool simulationKaboomBoxState = false;
-    bool simulationKaboomDisabledBoxState = false;
-    bool simulationKaboomMoreSensitivityBoxState = false;
+    // uint8_t simulationKaboomPinioBoxId = BOXKABOOM;
+    bool simulationKaboomRcState = false;
+    bool simulationKaboomDisabledRcState = false;
+    bool simulationKaboomMoreSensitivityRcState = false;
     uint8_t simulationThrottlePercent = 0;
 }
 
@@ -37,9 +37,9 @@ protected:
             unsetArmingDisabled((armingDisableFlags_e) (1 << flagIx));
         }
 
-        simulationKaboomBoxState = false;
-        simulationKaboomDisabledBoxState = false;
-        simulationKaboomMoreSensitivityBoxState = false;
+        simulationKaboomRcState = false;
+        simulationKaboomDisabledRcState = false;
+        simulationKaboomMoreSensitivityRcState = false;
         simulationThrottlePercent = 0;
 
         kaboomConfig_t* cfg = kaboomConfigMutable();
@@ -154,7 +154,7 @@ TEST_F(KaboomTest, TestIdleUntilArmed)
 
     // when
     ENABLE_ARMING_FLAG(ARMED);
-    simulationKaboomDisabledBoxState = true;
+    simulationKaboomDisabledRcState = true;
     kaboomCheck(3002000);
     // then
     EXPECT_EQ(KABOOM_STATE_ACTIVATING, kaboomGetState());
@@ -162,7 +162,7 @@ TEST_F(KaboomTest, TestIdleUntilArmed)
     EXPECT_EQ(false, kaboomReadyIoState);
 
     // when
-    simulationKaboomDisabledBoxState = false;
+    simulationKaboomDisabledRcState = false;
     kaboomCheck(60001999);
     // then
     EXPECT_EQ(KABOOM_STATE_ACTIVATING, kaboomGetState());
@@ -255,7 +255,7 @@ TEST_F(KaboomTest, TestManualActivation)
 
     for (int i = 0; i < 20; i++) {
         // when
-        simulationKaboomBoxState = i % 2;
+        simulationKaboomRcState = i % 2;
         simulationTimeUs += 1500000;
         kaboomCheck(simulationTimeUs);
         // then
@@ -267,14 +267,14 @@ TEST_F(KaboomTest, TestManualActivation)
 
     for (int i = 0; i < 5; i++) {
         // when
-        simulationKaboomBoxState = i % 2;
+        simulationKaboomRcState = i % 2;
         simulationTimeUs += 1000000;
         kaboomCheck(simulationTimeUs);
         // then
         EXPECT_EQ(KABOOM_STATE_IDLE, kaboomGetState());
     }
     // when
-    simulationKaboomBoxState = true;
+    simulationKaboomRcState = true;
     simulationTimeUs += 1000000;
     kaboomCheck(simulationTimeUs);
     // then
@@ -293,7 +293,7 @@ TEST_F(KaboomTest, TestManualKaboom)
     timeUs_t simulationTimeUs = toWaitingState();
 
     // when
-    simulationKaboomBoxState = true;
+    simulationKaboomRcState = true;
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
@@ -307,7 +307,7 @@ TEST_F(KaboomTest, TestManualKaboom)
     EXPECT_EQ(true, kaboomIoState);
 
     // when
-    simulationKaboomBoxState = false;
+    simulationKaboomRcState = false;
     simulationTimeUs += 499999;
     kaboomCheck(simulationTimeUs);
     // then
@@ -369,7 +369,7 @@ TEST_F(KaboomTest, TestKaboomMoreSensitivity)
     acc.accADC[0] = 3.0;
     acc.accADC[1] = 2.0;
     acc.accADC[2] = 2.0;
-    simulationKaboomMoreSensitivityBoxState = true;
+    simulationKaboomMoreSensitivityRcState = true;
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
@@ -470,14 +470,14 @@ TEST_F(KaboomTest, TestKaboomPulseTime)
     timeUs_t simulationTimeUs = toWaitingState();
 
     // when
-    simulationKaboomBoxState = true;
+    simulationKaboomRcState = true;
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
     EXPECT_EQ(true, kaboomIoState);
 
     // when
-    simulationKaboomBoxState = false;
+    simulationKaboomRcState = false;
     simulationTimeUs += 499999;
     kaboomCheck(simulationTimeUs);
     // then
@@ -515,7 +515,7 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     EXPECT_EQ(false, kaboomIsDisabled());
 
     // when
-    simulationKaboomDisabledBoxState = true;
+    simulationKaboomDisabledRcState = true;
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_ACTIVATING, kaboomGetState());
@@ -527,7 +527,7 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     acc.accADC[0] = 9.0;
     acc.accADC[1] = 0.0;
     acc.accADC[2] = 0.0;
-    simulationKaboomDisabledBoxState = true;
+    simulationKaboomDisabledRcState = true;
     simulationTimeUs += 60000000;
     kaboomCheck(simulationTimeUs);
     // then
@@ -540,7 +540,7 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     acc.accADC[0] = 4.0;
     acc.accADC[1] = 2.0;
     acc.accADC[2] = 2.0;
-    simulationKaboomMoreSensitivityBoxState = true;
+    simulationKaboomMoreSensitivityRcState = true;
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
@@ -549,7 +549,7 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     EXPECT_EQ(true, kaboomIsDisabled());
 
     // when
-    simulationKaboomBoxState = true;
+    simulationKaboomRcState = true;
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
@@ -558,7 +558,7 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     EXPECT_EQ(true, kaboomIsDisabled());
 
     // when
-    simulationKaboomDisabledBoxState = false;
+    simulationKaboomDisabledRcState = false;
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_KABOOM, kaboomGetState());
@@ -576,7 +576,7 @@ TEST_F(KaboomTest, TestKaboomDisabled)
     EXPECT_EQ(false, kaboomIsDisabled());
 
     // when
-    simulationKaboomDisabledBoxState = true;
+    simulationKaboomDisabledRcState = true;
     kaboomCheck(simulationTimeUs);
     // then
     EXPECT_EQ(KABOOM_STATE_WAITING, kaboomGetState());
@@ -636,26 +636,17 @@ extern "C" {
     // io/beeper.c
     void beeperConfirmationBeeps(uint8_t) {}
 
-    // msp/msp_box.c
-    bool getBoxIdState(boxId_e boxId) {
-        switch (boxId) {
-            case BOXKABOOM:
-                return simulationKaboomBoxState;
-            case BOXKABOOM_DISABLED:
-                return simulationKaboomDisabledBoxState;
-            case BOXKABOOM_MORE_SENSITIVITY:
-                return simulationKaboomMoreSensitivityBoxState;
-            default:
-                return false;
-        }
+    // sensors/kaboom_control.c
+    bool kaboomControlKaboom(void) {
+        return simulationKaboomRcState;
     }
 
-    // io/piniobox.c
-    uint8_t pinioBoxGetBoxId(int ix) {
-        if (ix == 0) {
-            return simulationKaboomPinioBoxId;
-        }
-        return 255;
+    bool kaboomControlDisabled(void) {
+        return simulationKaboomDisabledRcState;
+    }
+
+    bool kaboomControlMoreSensitivity(void) {
+        return simulationKaboomMoreSensitivityRcState;
     }
 
     // drivers/io.c

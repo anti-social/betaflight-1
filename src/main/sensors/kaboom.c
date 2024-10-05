@@ -4,10 +4,9 @@
 #include "fc/runtime_config.h"
 
 #include "drivers/io.h"
-#include "io/piniobox.h"
-#include "msp/msp_box.h"
 #include "pg/pg_ids.h"
 #include "sensors/acceleration.h"
+#include "sensors/kaboom_control.h"
 #include "sensors/sensors.h"
 
 #include "kaboom.h"
@@ -48,14 +47,14 @@ static uint8_t gForceMeasuresCounter = 0;
 // Runtime variables
 static kaboomState_t kaboomState = KABOOM_STATE_IDLE;
 static bool isDisabled = false;
-static bool prevKaboomBoxState = false;
+static bool prevKaboomRcState = false;
 static timeUs_t kaboomStartTimeUs = 0;
 static timeUs_t kaboomSelfDestructionEtaUs = 0;
 static bool kaboomReadyPinState = false;
 
 // Variables to track a manual activation
-static uint8_t numKaboomBoxActivated = 0;
-static timeUs_t kaboomBoxActivatedTimeUs = 0;
+static uint8_t numKaboomRcActivated = 0;
+static timeUs_t kaboomRcActivatedTimeUs = 0;
 
 static timeUs_t armTimeUs = 0;
 // End of runtime variables
@@ -84,7 +83,7 @@ bool kaboomIsDisabled(void)
 
 float currentSensitivity(void)
 {
-    if (getBoxIdState(BOXKABOOM_MORE_SENSITIVITY)) {
+    if (kaboomControlMoreSensitivity()) {
         return moreSensitivity;
     }
     return sensitivity;
@@ -187,11 +186,11 @@ void kaboomInit(void)
     }
 
     kaboomState = KABOOM_STATE_IDLE;
-    prevKaboomBoxState = false;
+    prevKaboomRcState = false;
     kaboomStartTimeUs = 0;
     kaboomSelfDestructionEtaUs = 0;
-    numKaboomBoxActivated = 0;
-    kaboomBoxActivatedTimeUs = 0;
+    numKaboomRcActivated = 0;
+    kaboomRcActivatedTimeUs = 0;
     armTimeUs = 0;
     kaboomReadyPinState = false;
 
@@ -207,9 +206,9 @@ void kaboomCheck(timeUs_t currentTimeUs)
         return;
     }
 
-    bool kaboomBoxState = getBoxIdState(BOXKABOOM);
+    bool kaboomRcState = kaboomControlKaboom();
 
-    isDisabled = getBoxIdState(BOXKABOOM_DISABLED);
+    isDisabled = kaboomControlDisabled();
 
     // We do not want to calculate real g-force because it requires a square root operation
     float gForceSquared = calcAccModulusSquared();
@@ -223,18 +222,18 @@ void kaboomCheck(timeUs_t currentTimeUs)
         gForceMeasuresCounter++;
     }
 
-    if (kaboomBoxState && !prevKaboomBoxState) {
-        if (numKaboomBoxActivated == 0) {
-            kaboomBoxActivatedTimeUs = currentTimeUs;
-        } else if (currentTimeUs - kaboomBoxActivatedTimeUs > KABOOM_MANUAL_ACTIVATION_TIME_US) {
-            numKaboomBoxActivated = 0;
-            kaboomBoxActivatedTimeUs = currentTimeUs;
+    if (kaboomRcState && !prevKaboomRcState) {
+        if (numKaboomRcActivated == 0) {
+            kaboomRcActivatedTimeUs = currentTimeUs;
+        } else if (currentTimeUs - kaboomRcActivatedTimeUs > KABOOM_MANUAL_ACTIVATION_TIME_US) {
+            numKaboomRcActivated = 0;
+            kaboomRcActivatedTimeUs = currentTimeUs;
         }
-        numKaboomBoxActivated++;
+        numKaboomRcActivated++;
     }
 
     bool isArmed = ARMING_FLAG(ARMED) && !isArmingDisabled();
-    bool isFakeArmed = numKaboomBoxActivated >= KABOOM_MANUAL_ACTIVATION_REPEAT;
+    bool isFakeArmed = numKaboomRcActivated >= KABOOM_MANUAL_ACTIVATION_REPEAT;
     bool isThrottled = calculateThrottlePercentAbs() >= KABOOM_MIN_THROTTLE_PERCENT;
     bool isActivated = (isArmed && isThrottled) || isFakeArmed;
 
@@ -267,7 +266,7 @@ void kaboomCheck(timeUs_t currentTimeUs)
         if (kaboomStartTimeUs != 0 && currentTimeUs - kaboomStartTimeUs < pulseTimeUs) {
             kaboomState = KABOOM_STATE_KABOOM;
         } else {
-            if (kaboomBoxState && !prevKaboomBoxState) {
+            if (kaboomRcState && !prevKaboomRcState) {
                 kaboomState = KABOOM_STATE_KABOOM;
             } else {
                 if (gForceSquared >= currentSensitivity()) {
@@ -290,6 +289,6 @@ void kaboomCheck(timeUs_t currentTimeUs)
 
     exit:
     applyKaboomReadyState(currentTimeUs);
-    prevKaboomBoxState = kaboomBoxState;
+    prevKaboomRcState = kaboomRcState;
 }
 #endif
