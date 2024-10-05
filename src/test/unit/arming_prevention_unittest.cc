@@ -59,6 +59,7 @@ extern "C" {
 
     #include "sensors/acceleration.h"
     #include "sensors/gyro.h"
+    #include "sensors/kaboom_control.h"
 
     #include "telemetry/telemetry.h"
 
@@ -1161,4 +1162,5 @@ extern "C" {
     }
     void getRcDeflectionAbs(void) {}
     uint32_t getCpuPercentageLate(void) { return 0; };
+    void kaboomControlUpdate(void) {}
 }
