@@ -1,8 +1,8 @@
-#include "sensors/kaboom_control.h"
+#include "platform.h"
 
-#include "kaboom_control.h"
 #include "pg/pg.h"
 #include "pg/pg_ids.h"
+#include "sensors/kaboom_control.h"
 
 PG_REGISTER_WITH_RESET_TEMPLATE(kaboomControlConfig_t, kaboomControlConfig, PG_KABOOM_CONTROL_CONFIG, 0);
 

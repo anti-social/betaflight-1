@@ -1,5 +1,7 @@
 #include <math.h>
 
+#include "platform.h"
+
 #include "fc/core.h"
 #include "fc/runtime_config.h"
 
