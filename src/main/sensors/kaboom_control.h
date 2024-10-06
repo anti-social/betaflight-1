@@ -12,7 +12,6 @@ typedef enum kaboomControl_e {
 
 typedef struct kaboomControlCondition_s {
     uint8_t auxChannelIndex;
-    uint8_t control;
     channelRange_t range;
 } kaboomControlCondition_t;
 

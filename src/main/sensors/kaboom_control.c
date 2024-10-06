@@ -8,7 +8,7 @@ PG_REGISTER_WITH_RESET_TEMPLATE(kaboomControlConfig_t, kaboomControlConfig, PG_K
 
 PG_RESET_TEMPLATE(kaboomControlConfig_t, kaboomControlConfig,
     .controls = {
-        { .auxChannelIndex = 0, .control = 0, .range = { .startStep = 0, .endStep = 0 } }
+        { .auxChannelIndex = 0, .range = { .startStep = 0, .endStep = 0 } }
     },
 );
 
