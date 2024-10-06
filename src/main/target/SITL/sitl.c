@@ -733,6 +733,12 @@ void IOConfigGPIO(IO_t io, ioConfig_t cfg)
     printf("IOConfigGPIO\n");
 }
 
+void IOWrite(IO_t io, bool value)
+{
+    UNUSED(io);
+    UNUSED(value);
+}
+
 void spektrumBind(rxConfig_t *rxConfig)
 {
     UNUSED(rxConfig);
