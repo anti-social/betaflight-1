@@ -64,6 +64,7 @@ extern "C" {
     int cliGetSettingIndex(char *name, uint8_t length);
     void *cliGetValuePointer(const clivalue_t *value);
 
+    extern const kaboomControlConfig_t pgResetTemplate_kaboomControlConfig;
     void printKaboomControl(
         dumpFlags_t dumpMask,
         const kaboomControlConfig_t *cfg,
@@ -109,7 +110,6 @@ extern "C" {
     PG_REGISTER(gyroConfig_t, gyroConfig, PG_GYRO_CONFIG, 0);
     PG_REGISTER(gpsConfig_t, gpsConfig, PG_GPS_CONFIG, 0);
     PG_REGISTER(gpsRescueConfig_t, gpsRescueConfig, PG_GPS_RESCUE, 0);
-    PG_REGISTER(kaboomControlConfig_t, kaboomControlConfig, PG_KABOOM_CONTROL_CONFIG, 0);
 
     PG_REGISTER_WITH_RESET_FN(int8_t, unitTestData, PG_RESERVED_FOR_TESTING_1, 0);
 }
@@ -234,6 +234,9 @@ protected:
     static void SetUpTestCase() {}
 
     virtual void SetUp() {
+        kaboomControlConfig_t* cfg = kaboomControlConfigMutable();
+        *cfg = pgResetTemplate_kaboomControlConfig;
+
         bufWriterInit(&cliWriterDesc, data, ARRAYLEN(data), &dummyBufWriter, NULL);
         cliWriter = cliErrorWriter = &cliWriterDesc;
     }
@@ -354,6 +357,38 @@ TEST_F(CliWriteTest, TestCliKaboomControl_InvalidKaboomControl)
     cliKaboomControl(cmd, args);
     vector<string> expected = {
         "###ERROR IN ", "kaboom_control", ": ", "KABOOM_CONTROL NOT BETWEEN 0 AND 2###", "\r\n"
+    };
+    EXPECT_EQ(expected, outLines);
+
+    auto cfg = kaboomControlConfig();
+    EXPECT_EQ(0, cfg->controls[0].auxChannelIndex);
+    EXPECT_EQ(0, cfg->controls[1].auxChannelIndex);
+    EXPECT_EQ(0, cfg->controls[2].auxChannelIndex);
+}
+
+TEST_F(CliWriteTest, TestCliKaboomControl_OutOfRangeNumber)
+{
+    const char cmd[] = "kaboom_control";
+    char args[] = "9223372036854775808 13 1800 2100";
+    cliKaboomControl(cmd, args);
+    vector<string> expected = {
+        "###ERROR IN ", "kaboom_control", ": ", "KABOOM_CONTROL NOT BETWEEN 0 AND 2###", "\r\n"
+    };
+    EXPECT_EQ(expected, outLines);
+
+    auto cfg = kaboomControlConfig();
+    EXPECT_EQ(0, cfg->controls[0].auxChannelIndex);
+    EXPECT_EQ(0, cfg->controls[1].auxChannelIndex);
+    EXPECT_EQ(0, cfg->controls[2].auxChannelIndex);
+}
+
+TEST_F(CliWriteTest, TestCliKaboomControl_NotANumber)
+{
+    const char cmd[] = "kaboom_control";
+    char args[] = "a 13 1800 2100";
+    cliKaboomControl(cmd, args);
+    vector<string> expected = {
+        "###ERROR IN ", "kaboom_control", ": ", "KABOOM_CONTROL IS NOT A NUMBER###", "\r\n"
     };
     EXPECT_EQ(expected, outLines);
 
@@ -565,4 +600,5 @@ displayPort_t *osdGetDisplayPort(osdDisplayPortDevice_e *) { return NULL; }
 mcuTypeId_e getMcuTypeId(void) { return MCU_TYPE_UNKNOWN; }
 uint16_t getCurrentRxIntervalUs(void) { return 0; }
 uint16_t getAverageSystemLoadPercent(void) { return 0; }
+bool isRangeActive(uint8_t, const channelRange_t *) { return false; }
 }

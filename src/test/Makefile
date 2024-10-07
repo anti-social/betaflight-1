@@ -118,7 +118,8 @@ cli_unittest_SRC := \
 		$(USER_DIR)/drivers/buf_writer.c \
 		$(USER_DIR)/drivers/resource.c \
 		$(USER_DIR)/drivers/serial.c \
-		$(USER_DIR)/common/typeconversion.c
+		$(USER_DIR)/common/typeconversion.c \
+		$(USER_DIR)/sensors/kaboom_control.c
 
 cli_unittest_DEFINES := \
 		USE_OSD= \
