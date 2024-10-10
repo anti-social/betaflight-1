@@ -64,11 +64,11 @@ extern "C" {
     int cliGetSettingIndex(char *name, uint8_t length);
     void *cliGetValuePointer(const clivalue_t *value);
 
-    extern const kaboomControlConfig_t pgResetTemplate_kaboomControlConfig;
+    extern void pgResetFn_kaboomControlConditions(kaboomControlCondition_t *cond);
     void printKaboomControl(
         dumpFlags_t dumpMask,
-        const kaboomControlConfig_t *cfg,
-        const kaboomControlConfig_t *cfgDefault,
+        const kaboomControlCondition_t *cond,
+        const kaboomControlCondition_t *condDefault,
         const char *headingStr
     );
     void cliKaboomControl(const char *, char *);
@@ -234,8 +234,7 @@ protected:
     static void SetUpTestCase() {}
 
     virtual void SetUp() {
-        kaboomControlConfig_t* cfg = kaboomControlConfigMutable();
-        *cfg = pgResetTemplate_kaboomControlConfig;
+        pgResetFn_kaboomControlConditions(kaboomControlConditionsMutable(0));
 
         bufWriterInit(&cliWriterDesc, data, ARRAYLEN(data), &dummyBufWriter, NULL);
         cliWriter = cliErrorWriter = &cliWriterDesc;
@@ -258,7 +257,7 @@ protected:
 
 TEST_F(CliWriteTest, TestPrintKaboomControl_NoHeading)
 {
-    printKaboomControl(DUMP_MASTER, kaboomControlConfig(), NULL, NULL);
+    printKaboomControl(DUMP_MASTER, kaboomControlConditions(0), NULL, NULL);
     vector<string> expected = {
         "kaboom_control 0 0 900 900", "\r\n",
         "kaboom_control 1 0 900 900", "\r\n",
@@ -270,7 +269,7 @@ TEST_F(CliWriteTest, TestPrintKaboomControl_NoHeading)
 TEST_F(CliWriteTest, TestPrintKaboomControl_WithHeading)
 {
     const char heading[] = "kaboom_control";
-    printKaboomControl(DUMP_MASTER, kaboomControlConfig(), NULL, heading);
+    printKaboomControl(DUMP_MASTER, kaboomControlConditions(0), NULL, heading);
     vector<string> expected = {
         "\r\n# ", "kaboom_control", "\r\n",
         "kaboom_control 0 0 900 900", "\r\n",
@@ -282,15 +281,13 @@ TEST_F(CliWriteTest, TestPrintKaboomControl_WithHeading)
 
 TEST_F(CliWriteTest, TestPrintKaboomControl_DiffAll)
 {
-    kaboomControlConfig_t modifiedCfg = {
-        .controls = {
-            { .auxChannelIndex = 7, .range = { .startStep = 0, .endStep = 12 } },
-            { .auxChannelIndex = 3, .range = { .startStep = 0, .endStep = 12 } },
-            { .auxChannelIndex = 3, .range = { .startStep = 36, .endStep = 48 } }
-        }
+    kaboomControlCondition_t modifiedConditions[] = {
+        { .auxChannelIndex = 7, .range = { .startStep = 0, .endStep = 12 } },
+        { .auxChannelIndex = 3, .range = { .startStep = 0, .endStep = 12 } },
+        { .auxChannelIndex = 3, .range = { .startStep = 36, .endStep = 48 } }
     };
     const char heading[] = "kaboom_control";
-    printKaboomControl(DUMP_ALL, &modifiedCfg, kaboomControlConfig(), heading);
+    printKaboomControl(DUMP_ALL, modifiedConditions, kaboomControlConditions(0), heading);
     vector<string> expected = {
         "\r\n# ", "kaboom_control", "\r\n",
         "kaboom_control 0 7 900 1200", "\r\n",
@@ -312,10 +309,10 @@ TEST_F(CliWriteTest, TestCliKaboomControl_Show)
     };
     EXPECT_EQ(expected, outLines);
 
-    auto cfg = kaboomControlConfig();
-    EXPECT_EQ(0, cfg->controls[0].auxChannelIndex);
-    EXPECT_EQ(0, cfg->controls[1].auxChannelIndex);
-    EXPECT_EQ(0, cfg->controls[2].auxChannelIndex);
+    auto cond = kaboomControlConditions(0);
+    EXPECT_EQ(0, cond[0].auxChannelIndex);
+    EXPECT_EQ(0, cond[1].auxChannelIndex);
+    EXPECT_EQ(0, cond[2].auxChannelIndex);
 }
 
 TEST_F(CliWriteTest, TestCliKaboomControl_NotEnoughArgs)
@@ -328,10 +325,10 @@ TEST_F(CliWriteTest, TestCliKaboomControl_NotEnoughArgs)
     };
     EXPECT_EQ(expected, outLines);
 
-    auto cfg = kaboomControlConfig();
-    EXPECT_EQ(0, cfg->controls[0].auxChannelIndex);
-    EXPECT_EQ(0, cfg->controls[1].auxChannelIndex);
-    EXPECT_EQ(0, cfg->controls[2].auxChannelIndex);
+    auto cond = kaboomControlConditions(0);
+    EXPECT_EQ(0, cond[0].auxChannelIndex);
+    EXPECT_EQ(0, cond[1].auxChannelIndex);
+    EXPECT_EQ(0, cond[2].auxChannelIndex);
 }
 
 TEST_F(CliWriteTest, TestCliKaboomControl_InvalidChannelIndex)
@@ -344,10 +341,10 @@ TEST_F(CliWriteTest, TestCliKaboomControl_InvalidChannelIndex)
     };
     EXPECT_EQ(expected, outLines);
 
-    auto cfg = kaboomControlConfig();
-    EXPECT_EQ(0, cfg->controls[0].auxChannelIndex);
-    EXPECT_EQ(0, cfg->controls[1].auxChannelIndex);
-    EXPECT_EQ(0, cfg->controls[2].auxChannelIndex);
+    auto cond = kaboomControlConditions(0);
+    EXPECT_EQ(0, cond[0].auxChannelIndex);
+    EXPECT_EQ(0, cond[1].auxChannelIndex);
+    EXPECT_EQ(0, cond[2].auxChannelIndex);
 }
 
 TEST_F(CliWriteTest, TestCliKaboomControl_InvalidKaboomControl)
@@ -360,10 +357,10 @@ TEST_F(CliWriteTest, TestCliKaboomControl_InvalidKaboomControl)
     };
     EXPECT_EQ(expected, outLines);
 
-    auto cfg = kaboomControlConfig();
-    EXPECT_EQ(0, cfg->controls[0].auxChannelIndex);
-    EXPECT_EQ(0, cfg->controls[1].auxChannelIndex);
-    EXPECT_EQ(0, cfg->controls[2].auxChannelIndex);
+    auto cond = kaboomControlConditions(0);
+    EXPECT_EQ(0, cond[0].auxChannelIndex);
+    EXPECT_EQ(0, cond[1].auxChannelIndex);
+    EXPECT_EQ(0, cond[2].auxChannelIndex);
 }
 
 TEST_F(CliWriteTest, TestCliKaboomControl_OutOfRangeNumber)
@@ -376,10 +373,10 @@ TEST_F(CliWriteTest, TestCliKaboomControl_OutOfRangeNumber)
     };
     EXPECT_EQ(expected, outLines);
 
-    auto cfg = kaboomControlConfig();
-    EXPECT_EQ(0, cfg->controls[0].auxChannelIndex);
-    EXPECT_EQ(0, cfg->controls[1].auxChannelIndex);
-    EXPECT_EQ(0, cfg->controls[2].auxChannelIndex);
+    auto cond = kaboomControlConditions(0);
+    EXPECT_EQ(0, cond[0].auxChannelIndex);
+    EXPECT_EQ(0, cond[1].auxChannelIndex);
+    EXPECT_EQ(0, cond[2].auxChannelIndex);
 }
 
 TEST_F(CliWriteTest, TestCliKaboomControl_NotANumber)
@@ -392,10 +389,10 @@ TEST_F(CliWriteTest, TestCliKaboomControl_NotANumber)
     };
     EXPECT_EQ(expected, outLines);
 
-    auto cfg = kaboomControlConfig();
-    EXPECT_EQ(0, cfg->controls[0].auxChannelIndex);
-    EXPECT_EQ(0, cfg->controls[1].auxChannelIndex);
-    EXPECT_EQ(0, cfg->controls[2].auxChannelIndex);
+    auto cond = kaboomControlConditions(0);
+    EXPECT_EQ(0, cond[0].auxChannelIndex);
+    EXPECT_EQ(0, cond[1].auxChannelIndex);
+    EXPECT_EQ(0, cond[2].auxChannelIndex);
 }
 
 TEST_F(CliWriteTest, TestCliKaboomControl_SetCondition)
@@ -408,13 +405,13 @@ TEST_F(CliWriteTest, TestCliKaboomControl_SetCondition)
     };
     EXPECT_EQ(expected, outLines);
 
-    auto cfg = kaboomControlConfig();
-    auto ctl2 = cfg->controls[2];
+    auto cond = kaboomControlConditions(0);
+    auto ctl2 = cond[2];
     EXPECT_EQ(1, ctl2.auxChannelIndex);
     EXPECT_EQ(0, ctl2.range.startStep);
     EXPECT_EQ(12, ctl2.range.endStep);
-    EXPECT_EQ(0, cfg->controls[0].auxChannelIndex);
-    EXPECT_EQ(0, cfg->controls[0].auxChannelIndex);
+    EXPECT_EQ(0, cond[0].auxChannelIndex);
+    EXPECT_EQ(0, cond[1].auxChannelIndex);
 }
 // End of kaboom tests
 

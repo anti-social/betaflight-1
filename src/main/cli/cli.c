@@ -2579,24 +2579,24 @@ static const char *kaboomControlFormat = "kaboom_control %u %u %u %u";
 
 STATIC_UNIT_TESTED void printKaboomControl(
     dumpFlags_t dumpMask,
-    const kaboomControlConfig_t *cfg,
-    const kaboomControlConfig_t *cfgDefault,
+    const kaboomControlCondition_t *cfg,
+    const kaboomControlCondition_t *cfgDefault,
     const char *headingStr
 ) {
     headingStr = cliPrintSectionHeading(dumpMask, false, headingStr);
 
     bool equalsDefault = false;
-    for (uint8_t control = 0; control < KABOOM_CONTROL_COUNT; control++) {
-        const kaboomControlCondition_t *ctl = &cfg->controls[control];
+    for (uint8_t ix = 0; ix < KABOOM_CONTROL_COUNT; ix++) {
+        const kaboomControlCondition_t *ctl = &cfg[ix];
         if (cfgDefault) {
-            const kaboomControlCondition_t *ctlDefault = &cfgDefault->controls[control];
+            const kaboomControlCondition_t *ctlDefault = &cfgDefault[ix];
             equalsDefault = !memcmp(ctl, ctlDefault, sizeof(*ctl));
             headingStr = cliPrintSectionHeading(dumpMask, !equalsDefault, headingStr);
             cliDefaultPrintLinef(
                 dumpMask,
                 equalsDefault,
                 kaboomControlFormat,
-                control,
+                ix,
                 ctlDefault->auxChannelIndex,
                 MODE_STEP_TO_CHANNEL_VALUE(ctlDefault->range.startStep),
                 MODE_STEP_TO_CHANNEL_VALUE(ctlDefault->range.endStep)
@@ -2606,7 +2606,7 @@ STATIC_UNIT_TESTED void printKaboomControl(
             dumpMask,
             equalsDefault,
             kaboomControlFormat,
-            control,
+            ix,
             ctl->auxChannelIndex,
             MODE_STEP_TO_CHANNEL_VALUE(ctl->range.startStep),
             MODE_STEP_TO_CHANNEL_VALUE(ctl->range.endStep)
@@ -2617,12 +2617,12 @@ STATIC_UNIT_TESTED void printKaboomControl(
 #include <errno.h>
 
 static bool parseIntArgInRange(
-    const char * *const cmdline,
-    long int * num,
+    const char **cmdline,
+    long int *num,
     long int fromVal,
     long int toVal,
-    const char * cmdName,
-    const char * argName
+    const char *cmdName,
+    const char *argName
 ) {
     // Find start of an argument to be able to check end of a string
     // before calling strtol
@@ -2635,10 +2635,10 @@ static bool parseIntArgInRange(
         return false;
     }
 
-    const char * *const argEnd = cmdline;
+    const char *argEnd = argStart;
     errno = 0;
-    long int n = strtol(argStart, (char **)argEnd, 10);
-    if (argStart == *argEnd) {
+    long int n = strtol(argStart, (char **)&argEnd, 10);
+    if (argStart == argEnd) {
         cliShowArgumentNotANumberError(cmdName, (char *)argName);
         return false;
     }
@@ -2647,34 +2647,34 @@ static bool parseIntArgInRange(
         return false;
     }
 
-    *cmdline = *argEnd;
+    *cmdline = argEnd;
     *num = n;
     return true;
 }
 
 STATIC_UNIT_TESTED void cliKaboomControl(const char * cmdName, char * cmdline) {
     if (isEmpty(cmdline)) {
-        printKaboomControl(DUMP_MASTER, kaboomControlConfig(), NULL, NULL);
+        printKaboomControl(DUMP_MASTER, kaboomControlConditions(0), NULL, NULL);
         return;
     }
 
-    const char * *const curArg = (const char * *const) &cmdline;
-    long int control = 0;
-    if (!parseIntArgInRange(curArg, &control, 0, KABOOM_CONTROL_COUNT, cmdName, "KABOOM_CONTROL")) {
+    const char **curArg = (const char **) &cmdline;
+    long int ix = 0;
+    if (!parseIntArgInRange(curArg, &ix, 0, KABOOM_CONTROL_COUNT, cmdName, "KABOOM_CONTROL")) {
         return;
     }
-    kaboomControlCondition_t *ctl = &kaboomControlConfigMutable()->controls[control];
+    kaboomControlCondition_t *cond = kaboomControlConditionsMutable(ix);
 
     long int auxChannelIx = 0;
     if (!parseIntArgInRange(curArg, &auxChannelIx, 0, MAX_AUX_CHANNEL_COUNT, cmdName, "CHANNEL_INDEX")) {
         return;
     }
-    ctl->auxChannelIndex = auxChannelIx;
+    cond->auxChannelIndex = auxChannelIx;
 
     uint8_t validRangeArgCount = 0;
-    *curArg = processChannelRangeArgs(*curArg, &ctl->range, &validRangeArgCount);
+    *curArg = processChannelRangeArgs(*curArg, &cond->range, &validRangeArgCount);
     if (validRangeArgCount != 2) {
-        memset(ctl, 0, sizeof(kaboomControlCondition_t));
+        memset(cond, 0, sizeof(kaboomControlCondition_t));
         cliShowInvalidArgumentCountError(cmdName);
         return;
     }
@@ -2683,10 +2683,10 @@ STATIC_UNIT_TESTED void cliKaboomControl(const char * cmdName, char * cmdline) {
         0,
         false,
         kaboomControlFormat,
-        control,
-        ctl->auxChannelIndex,
-        MODE_STEP_TO_CHANNEL_VALUE(ctl->range.startStep),
-        MODE_STEP_TO_CHANNEL_VALUE(ctl->range.endStep)
+        ix,
+        cond->auxChannelIndex,
+        MODE_STEP_TO_CHANNEL_VALUE(cond->range.startStep),
+        MODE_STEP_TO_CHANNEL_VALUE(cond->range.endStep)
     );
 }
 
@@ -6435,7 +6435,7 @@ static void printConfig(const char *cmdName, char *cmdline, bool doDiff)
 
             printRxRange(dumpMask, rxChannelRangeConfigs_CopyArray, rxChannelRangeConfigs(0), "rxrange");
 
-            printKaboomControl(dumpMask, &kaboomControlConfig_Copy, kaboomControlConfig(), "kaboom_control");
+            printKaboomControl(dumpMask, kaboomControlConditions_CopyArray, kaboomControlConditions(0), "kaboom_control");
 
 #ifdef USE_VTX_TABLE
             printVtxTable(dumpMask, &vtxTableConfig_Copy, vtxTableConfig(), "vtxtable");

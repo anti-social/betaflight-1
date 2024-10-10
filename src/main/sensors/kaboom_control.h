@@ -15,11 +15,7 @@ typedef struct kaboomControlCondition_s {
     channelRange_t range;
 } kaboomControlCondition_t;
 
-typedef struct kaboomControlConfig_s {
-    kaboomControlCondition_t controls[KABOOM_CONTROL_COUNT];
-} kaboomControlConfig_t;
-
-PG_DECLARE(kaboomControlConfig_t, kaboomControlConfig);
+PG_DECLARE_ARRAY(kaboomControlCondition_t, KABOOM_CONTROL_COUNT, kaboomControlConditions);
 
 bool kaboomControlDisabled(void);
 bool kaboomControlMoreSensitivity(void);
