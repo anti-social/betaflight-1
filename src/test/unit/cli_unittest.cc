@@ -259,9 +259,9 @@ TEST_F(CliWriteTest, TestPrintKaboomControl_NoHeading)
 {
     printKaboomControl(DUMP_MASTER, kaboomControlConditions(0), NULL, NULL);
     vector<string> expected = {
-        "kaboom_control 0 0 900 900", "\r\n",
-        "kaboom_control 1 0 900 900", "\r\n",
-        "kaboom_control 2 0 900 900", "\r\n"
+        "kaboom_control 0 0 0 900 900", "\r\n",
+        "kaboom_control 1 0 0 900 900", "\r\n",
+        "kaboom_control 2 0 0 900 900", "\r\n"
     };
     EXPECT_EQ(expected, outLines);
 }
@@ -272,9 +272,9 @@ TEST_F(CliWriteTest, TestPrintKaboomControl_WithHeading)
     printKaboomControl(DUMP_MASTER, kaboomControlConditions(0), NULL, heading);
     vector<string> expected = {
         "\r\n# ", "kaboom_control", "\r\n",
-        "kaboom_control 0 0 900 900", "\r\n",
-        "kaboom_control 1 0 900 900", "\r\n",
-        "kaboom_control 2 0 900 900", "\r\n"
+        "kaboom_control 0 0 0 900 900", "\r\n",
+        "kaboom_control 1 0 0 900 900", "\r\n",
+        "kaboom_control 2 0 0 900 900", "\r\n"
     };
     EXPECT_EQ(expected, outLines);
 }
@@ -282,17 +282,17 @@ TEST_F(CliWriteTest, TestPrintKaboomControl_WithHeading)
 TEST_F(CliWriteTest, TestPrintKaboomControl_DiffAll)
 {
     kaboomControlCondition_t modifiedConditions[] = {
-        { .auxChannelIndex = 7, .range = { .startStep = 0, .endStep = 12 } },
-        { .auxChannelIndex = 3, .range = { .startStep = 0, .endStep = 12 } },
-        { .auxChannelIndex = 3, .range = { .startStep = 36, .endStep = 48 } }
+        { .control = KABOOM_CONTROL_DISABLED, .auxChannelIndex = 7, .range = { .startStep = 0, .endStep = 12 } },
+        { .control = KABOOM_CONTROL_MORE_SENSITIVITY, .auxChannelIndex = 3, .range = { .startStep = 0, .endStep = 12 } },
+        { .control = KABOOM_CONTROL_KABOOM, .auxChannelIndex = 3, .range = { .startStep = 36, .endStep = 48 } }
     };
     const char heading[] = "kaboom_control";
     printKaboomControl(DUMP_ALL, modifiedConditions, kaboomControlConditions(0), heading);
     vector<string> expected = {
         "\r\n# ", "kaboom_control", "\r\n",
-        "kaboom_control 0 7 900 1200", "\r\n",
-        "kaboom_control 1 3 900 1200", "\r\n",
-        "kaboom_control 2 3 1800 2100", "\r\n"
+        "kaboom_control 0 0 7 900 1200", "\r\n",
+        "kaboom_control 1 1 3 900 1200", "\r\n",
+        "kaboom_control 2 2 3 1800 2100", "\r\n"
     };
     EXPECT_EQ(expected, outLines);
 }
@@ -303,9 +303,9 @@ TEST_F(CliWriteTest, TestCliKaboomControl_Show)
     char args[] = "";
     cliKaboomControl(cmd, args);
     vector<string> expected = {
-        "kaboom_control 0 0 900 900", "\r\n",
-        "kaboom_control 1 0 900 900", "\r\n",
-        "kaboom_control 2 0 900 900", "\r\n"
+        "kaboom_control 0 0 0 900 900", "\r\n",
+        "kaboom_control 1 0 0 900 900", "\r\n",
+        "kaboom_control 2 0 0 900 900", "\r\n"
     };
     EXPECT_EQ(expected, outLines);
 
@@ -334,7 +334,7 @@ TEST_F(CliWriteTest, TestCliKaboomControl_NotEnoughArgs)
 TEST_F(CliWriteTest, TestCliKaboomControl_InvalidChannelIndex)
 {
     const char cmd[] = "kaboom_control";
-    char args[] = "0 14 1800 2100";
+    char args[] = "1 0 14 1800 2100";
     cliKaboomControl(cmd, args);
     vector<string> expected = {
         "###ERROR IN ", "kaboom_control", ": ", "CHANNEL_INDEX NOT BETWEEN 0 AND 13###", "\r\n"
@@ -350,7 +350,7 @@ TEST_F(CliWriteTest, TestCliKaboomControl_InvalidChannelIndex)
 TEST_F(CliWriteTest, TestCliKaboomControl_InvalidKaboomControl)
 {
     const char cmd[] = "kaboom_control";
-    char args[] = "3 13 1800 2100";
+    char args[] = "0 3 13 1800 2100";
     cliKaboomControl(cmd, args);
     vector<string> expected = {
         "###ERROR IN ", "kaboom_control", ": ", "KABOOM_CONTROL NOT BETWEEN 0 AND 2###", "\r\n"
@@ -366,7 +366,7 @@ TEST_F(CliWriteTest, TestCliKaboomControl_InvalidKaboomControl)
 TEST_F(CliWriteTest, TestCliKaboomControl_OutOfRangeNumber)
 {
     const char cmd[] = "kaboom_control";
-    char args[] = "9223372036854775808 13 1800 2100";
+    char args[] = "0 9223372036854775808 13 1800 2100";
     cliKaboomControl(cmd, args);
     vector<string> expected = {
         "###ERROR IN ", "kaboom_control", ": ", "KABOOM_CONTROL NOT BETWEEN 0 AND 2###", "\r\n"
@@ -382,7 +382,7 @@ TEST_F(CliWriteTest, TestCliKaboomControl_OutOfRangeNumber)
 TEST_F(CliWriteTest, TestCliKaboomControl_NotANumber)
 {
     const char cmd[] = "kaboom_control";
-    char args[] = "a 13 1800 2100";
+    char args[] = "0 a 13 1800 2100";
     cliKaboomControl(cmd, args);
     vector<string> expected = {
         "###ERROR IN ", "kaboom_control", ": ", "KABOOM_CONTROL IS NOT A NUMBER###", "\r\n"
@@ -398,10 +398,10 @@ TEST_F(CliWriteTest, TestCliKaboomControl_NotANumber)
 TEST_F(CliWriteTest, TestCliKaboomControl_SetCondition)
 {
     const char cmd[] = "kaboom_control";
-    char args[] = "2 1  900 1200";
+    char args[] = "2 2 1  900 1200";
     cliKaboomControl(cmd, args);
     vector<string> expected = {
-        "kaboom_control 2 1 900 1200", "\r\n",
+        "kaboom_control 2 2 1 900 1200", "\r\n",
     };
     EXPECT_EQ(expected, outLines);
 

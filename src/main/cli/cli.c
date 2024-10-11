@@ -2575,31 +2575,32 @@ static void cliFlashRead(const char *cmdName, char *cmdline)
 #endif // USE_FLASH_TOOLS
 #endif // USE_FLASHFS
 
-static const char *kaboomControlFormat = "kaboom_control %u %u %u %u";
+static const char *kaboomControlFormat = "kaboom_control %u %u %u %u %u";
 
 STATIC_UNIT_TESTED void printKaboomControl(
     dumpFlags_t dumpMask,
-    const kaboomControlCondition_t *cfg,
-    const kaboomControlCondition_t *cfgDefault,
+    const kaboomControlCondition_t *conditions,
+    const kaboomControlCondition_t *defaultConditions,
     const char *headingStr
 ) {
     headingStr = cliPrintSectionHeading(dumpMask, false, headingStr);
 
     bool equalsDefault = false;
     for (uint8_t ix = 0; ix < KABOOM_CONTROL_COUNT; ix++) {
-        const kaboomControlCondition_t *ctl = &cfg[ix];
-        if (cfgDefault) {
-            const kaboomControlCondition_t *ctlDefault = &cfgDefault[ix];
-            equalsDefault = !memcmp(ctl, ctlDefault, sizeof(*ctl));
+        const kaboomControlCondition_t *cond = &conditions[ix];
+        if (defaultConditions) {
+            const kaboomControlCondition_t *condDefault = &defaultConditions[ix];
+            equalsDefault = !memcmp(cond, condDefault, sizeof(*cond));
             headingStr = cliPrintSectionHeading(dumpMask, !equalsDefault, headingStr);
             cliDefaultPrintLinef(
                 dumpMask,
                 equalsDefault,
                 kaboomControlFormat,
                 ix,
-                ctlDefault->auxChannelIndex,
-                MODE_STEP_TO_CHANNEL_VALUE(ctlDefault->range.startStep),
-                MODE_STEP_TO_CHANNEL_VALUE(ctlDefault->range.endStep)
+                condDefault->control,
+                condDefault->auxChannelIndex,
+                MODE_STEP_TO_CHANNEL_VALUE(condDefault->range.startStep),
+                MODE_STEP_TO_CHANNEL_VALUE(condDefault->range.endStep)
             );
         }
         cliDumpPrintLinef(
@@ -2607,9 +2608,10 @@ STATIC_UNIT_TESTED void printKaboomControl(
             equalsDefault,
             kaboomControlFormat,
             ix,
-            ctl->auxChannelIndex,
-            MODE_STEP_TO_CHANNEL_VALUE(ctl->range.startStep),
-            MODE_STEP_TO_CHANNEL_VALUE(ctl->range.endStep)
+            cond->control,
+            cond->auxChannelIndex,
+            MODE_STEP_TO_CHANNEL_VALUE(cond->range.startStep),
+            MODE_STEP_TO_CHANNEL_VALUE(cond->range.endStep)
         );
     }
 }
@@ -2660,10 +2662,16 @@ STATIC_UNIT_TESTED void cliKaboomControl(const char * cmdName, char * cmdline) {
 
     const char **curArg = (const char **) &cmdline;
     long int ix = 0;
-    if (!parseIntArgInRange(curArg, &ix, 0, KABOOM_CONTROL_COUNT, cmdName, "KABOOM_CONTROL")) {
+    if (!parseIntArgInRange(curArg, &ix, 0, KABOOM_CONTROL_COUNT, cmdName, "INDEX")) {
         return;
     }
     kaboomControlCondition_t *cond = kaboomControlConditionsMutable(ix);
+
+    long int control = 0;
+    if (!parseIntArgInRange(curArg, &control, 0, KABOOM_CONTROL_COUNT, cmdName, "KABOOM_CONTROL")) {
+        return;
+    }
+    cond->control = control;
 
     long int auxChannelIx = 0;
     if (!parseIntArgInRange(curArg, &auxChannelIx, 0, MAX_AUX_CHANNEL_COUNT, cmdName, "CHANNEL_INDEX")) {
@@ -2684,6 +2692,7 @@ STATIC_UNIT_TESTED void cliKaboomControl(const char * cmdName, char * cmdline) {
         false,
         kaboomControlFormat,
         ix,
+        cond->control,
         cond->auxChannelIndex,
         MODE_STEP_TO_CHANNEL_VALUE(cond->range.startStep),
         MODE_STEP_TO_CHANNEL_VALUE(cond->range.endStep)
@@ -6655,7 +6664,7 @@ const clicmd_t cmdTable[] = {
     CLI_COMMAND_DEF("gyroregisters", "dump gyro config registers contents", NULL, cliDumpGyroRegisters),
 #endif
     CLI_COMMAND_DEF("help", "display command help", "[search string]", cliHelp),
-    CLI_COMMAND_DEF("kaboom_control", "kaboom channels on switch", "<index> <aux_channel> <kaboom_control> <start_range> <end_range>", cliKaboomControl),
+    CLI_COMMAND_DEF("kaboom_control", "kaboom channels on switch", "<index> <kaboom_control> <aux_channel> <start_range> <end_range>", cliKaboomControl),
 #ifdef USE_LED_STRIP_STATUS_MODE
         CLI_COMMAND_DEF("led", "configure leds", NULL, cliLed),
 #endif

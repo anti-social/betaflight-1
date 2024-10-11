@@ -10,6 +10,7 @@ PG_REGISTER_ARRAY_WITH_RESET_FN(kaboomControlCondition_t, KABOOM_CONTROL_COUNT, 
 void pgResetFn_kaboomControlConditions(kaboomControlCondition_t *cond)
 {
     for (int i = 0; i < KABOOM_CONTROL_COUNT; i++) {
+        cond[i].control = 0;
         cond[i].auxChannelIndex = 0;
         cond[i].range.startStep = 0;
         cond[i].range.endStep = 0;
@@ -30,10 +31,9 @@ bool kaboomControlKaboom(void) {
     return kaboomControl[KABOOM_CONTROL_KABOOM];
 }
 
-
 void kaboomControlUpdate(void) {
-    for (uint8_t i = 0; i < KABOOM_CONTROL_COUNT; i++) {
-        const kaboomControlCondition_t *ctl = kaboomControlConditions(i);
-        kaboomControl[i] = isRangeActive(ctl->auxChannelIndex, &ctl->range);
+    for (unsigned i = 0; i < KABOOM_CONTROL_COUNT; i++) {
+        const kaboomControlCondition_t *cond = kaboomControlConditions(i);
+        kaboomControl[cond->control] = isRangeActive(cond->auxChannelIndex, &cond->range);
     }
 }
