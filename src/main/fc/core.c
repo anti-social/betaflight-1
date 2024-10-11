@@ -102,6 +102,7 @@
 #include "sensors/boardalignment.h"
 #include "sensors/compass.h"
 #include "sensors/gyro.h"
+#include "sensors/kaboom_control.h"
 
 #include "telemetry/telemetry.h"
 
@@ -1075,6 +1076,8 @@ void processRxModes(timeUs_t currentTimeUs)
         handleVTXControlButton();
     }
 #endif
+
+    kaboomControlUpdate();
 
 #ifdef USE_ACRO_TRAINER
     pidSetAcroTrainerState(IS_RC_MODE_ACTIVE(BOXACROTRAINER) && sensors(SENSOR_ACC));

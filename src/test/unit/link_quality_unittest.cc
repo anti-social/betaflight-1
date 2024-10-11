@@ -65,6 +65,7 @@ extern "C" {
     #include "rx/rx.h"
 
     #include "sensors/battery.h"
+    #include "sensors/kaboom.h"
 
     attitudeEulerAngles_t attitude;
     float rMat[3][3];
@@ -625,4 +626,10 @@ extern "C" {
     float getMotorOutputLow(void) { return 1000.0; }
 
     float getMotorOutputHigh(void) { return 2047.0; }
+
+    kaboomState_t kaboomGetState(void) { return KABOOM_STATE_IDLE; }
+    bool kaboomIsDisabled(void) { return false; }
+    float kaboomCurrentGForce(void) { return 1.0; }
+    float kaboomGetMaxGForceSquared(void) { return 1.0; }
+    timeUs_t kaboomTimeToSelfDestructionUs(timeUs_t) { return 0; }
 }

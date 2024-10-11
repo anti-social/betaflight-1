@@ -115,14 +115,15 @@ cli_unittest_SRC := \
 		$(USER_DIR)/io/gps.c \
 		$(USER_DIR)/pg/pg.c \
 		$(USER_DIR)/fc/runtime_config.c \
+		$(USER_DIR)/drivers/buf_writer.c \
 		$(USER_DIR)/drivers/resource.c \
 		$(USER_DIR)/drivers/serial.c \
-		$(USER_DIR)/common/typeconversion.c
+		$(USER_DIR)/common/typeconversion.c \
+		$(USER_DIR)/sensors/kaboom_control.c
 
 cli_unittest_DEFINES := \
 		USE_OSD= \
 		USE_CLI= \
-		USE_RESOURCE_MGMT= \
 		SystemCoreClock=1000000
 
 cms_unittest_SRC := \

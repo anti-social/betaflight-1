@@ -57,12 +57,22 @@ extern "C" {
     #include "rx/rx.h"
     #include "scheduler/scheduler.h"
     #include "sensors/battery.h"
+    #include "sensors/kaboom_control.h"
     #include "sensors/gyro.h"
 
     void cliSet(const char *cmdName, char *cmdline);
     int cliGetSettingIndex(char *name, uint8_t length);
     void *cliGetValuePointer(const clivalue_t *value);
-    
+
+    extern void pgResetFn_kaboomControlConditions(kaboomControlCondition_t *cond);
+    void printKaboomControl(
+        dumpFlags_t dumpMask,
+        const kaboomControlCondition_t *cond,
+        const kaboomControlCondition_t *condDefault,
+        const char *headingStr
+    );
+    void cliKaboomControl(const char *, char *);
+
     const clivalue_t valueTable[] = {
         { .name = "array_unit_test",   .type = VAR_INT8  | MODE_ARRAY  | MASTER_VALUE, .config = { .array = { .length = 3}},                     .pgn = PG_RESERVED_FOR_TESTING_1, .offset = 0 },
         { .name = "str_unit_test",     .type = VAR_UINT8 | MODE_STRING | MASTER_VALUE, .config = { .string = { 0, 16, 0 }},                      .pgn = PG_RESERVED_FOR_TESTING_1, .offset = 0 },
@@ -74,6 +84,10 @@ extern "C" {
     const char * const buildKey = NULL;
     const char * const releaseName = NULL;
 
+    bufWriter_t cliWriterDesc;
+    extern bufWriter_t *cliWriter;
+    extern bufWriter_t *cliErrorWriter;
+    void dummyBufWriter(void *, void *, int);
 
     PG_REGISTER(osdConfig_t, osdConfig, PG_OSD_CONFIG, 0);
     PG_REGISTER(batteryConfig_t, batteryConfig, PG_BATTERY_CONFIG, 0);
@@ -100,10 +114,14 @@ extern "C" {
     PG_REGISTER_WITH_RESET_FN(int8_t, unitTestData, PG_RESERVED_FOR_TESTING_1, 0);
 }
 
+#include <vector>
 #include "unittest_macros.h"
 #include "gtest/gtest.h"
 
+using namespace std;
+
 const bool PRINT_TEST_DATA = false;
+
 
 TEST(CLIUnittest, TestCliSetArray)
 {
@@ -131,7 +149,7 @@ TEST(CLIUnittest, TestCliSetArray)
 
 TEST(CLIUnittest, TestCliSetStringNoFlags)
 {
-    char *str = (char *)"str_unit_test    =   SAMPLE"; 
+    char *str = (char *)"str_unit_test    =   SAMPLE";
     cliSet("", str);
 
     const uint16_t index = cliGetSettingIndex(str, 13);
@@ -159,8 +177,8 @@ TEST(CLIUnittest, TestCliSetStringNoFlags)
 
 TEST(CLIUnittest, TestCliSetStringWriteOnce)
 {
-    char *str1 = (char *)"wos_unit_test    =   SAMPLE"; 
-    char *str2 = (char *)"wos_unit_test    =   ELPMAS"; 
+    char *str1 = (char *)"wos_unit_test    =   SAMPLE";
+    char *str2 = (char *)"wos_unit_test    =   ELPMAS";
     cliSet("", str1);
 
     const uint16_t index = cliGetSettingIndex(str1, 13);
@@ -204,6 +222,198 @@ TEST(CLIUnittest, TestCliSetStringWriteOnce)
     EXPECT_EQ('E', data[5]);
     EXPECT_EQ(0,   data[6]);
 }
+
+// Kaboom tests
+static uint8_t data[1000];
+static vector<string> outLines;
+
+class CliWriteTest : public ::testing::Test
+{
+
+protected:
+    static void SetUpTestCase() {}
+
+    virtual void SetUp() {
+        pgResetFn_kaboomControlConditions(kaboomControlConditionsMutable(0));
+
+        bufWriterInit(&cliWriterDesc, data, ARRAYLEN(data), &dummyBufWriter, NULL);
+        cliWriter = cliErrorWriter = &cliWriterDesc;
+    }
+
+    virtual void TearDown() {
+        cliWriter = NULL;
+        outLines.clear();
+    }
+
+    static void dummyBufWriter(void *, void *_data, int size) {
+        uint8_t *data = (uint8_t *)_data;
+        ostringstream stream;
+        for (int i = 0; i < size; i++) {
+            stream << (char)data[i];
+        }
+        outLines.push_back(stream.str());
+    }
+};
+
+TEST_F(CliWriteTest, TestPrintKaboomControl_NoHeading)
+{
+    printKaboomControl(DUMP_MASTER, kaboomControlConditions(0), NULL, NULL);
+    vector<string> expected = {
+        "kaboom_control 0 0 0 900 900", "\r\n",
+        "kaboom_control 1 0 0 900 900", "\r\n",
+        "kaboom_control 2 0 0 900 900", "\r\n"
+    };
+    EXPECT_EQ(expected, outLines);
+}
+
+TEST_F(CliWriteTest, TestPrintKaboomControl_WithHeading)
+{
+    const char heading[] = "kaboom_control";
+    printKaboomControl(DUMP_MASTER, kaboomControlConditions(0), NULL, heading);
+    vector<string> expected = {
+        "\r\n# ", "kaboom_control", "\r\n",
+        "kaboom_control 0 0 0 900 900", "\r\n",
+        "kaboom_control 1 0 0 900 900", "\r\n",
+        "kaboom_control 2 0 0 900 900", "\r\n"
+    };
+    EXPECT_EQ(expected, outLines);
+}
+
+TEST_F(CliWriteTest, TestPrintKaboomControl_DiffAll)
+{
+    kaboomControlCondition_t modifiedConditions[] = {
+        { .control = KABOOM_CONTROL_DISABLED, .auxChannelIndex = 7, .range = { .startStep = 0, .endStep = 12 } },
+        { .control = KABOOM_CONTROL_MORE_SENSITIVITY, .auxChannelIndex = 3, .range = { .startStep = 0, .endStep = 12 } },
+        { .control = KABOOM_CONTROL_KABOOM, .auxChannelIndex = 3, .range = { .startStep = 36, .endStep = 48 } }
+    };
+    const char heading[] = "kaboom_control";
+    printKaboomControl(DUMP_ALL, modifiedConditions, kaboomControlConditions(0), heading);
+    vector<string> expected = {
+        "\r\n# ", "kaboom_control", "\r\n",
+        "kaboom_control 0 0 7 900 1200", "\r\n",
+        "kaboom_control 1 1 3 900 1200", "\r\n",
+        "kaboom_control 2 2 3 1800 2100", "\r\n"
+    };
+    EXPECT_EQ(expected, outLines);
+}
+
+TEST_F(CliWriteTest, TestCliKaboomControl_Show)
+{
+    const char cmd[] = "kaboom_control";
+    char args[] = "";
+    cliKaboomControl(cmd, args);
+    vector<string> expected = {
+        "kaboom_control 0 0 0 900 900", "\r\n",
+        "kaboom_control 1 0 0 900 900", "\r\n",
+        "kaboom_control 2 0 0 900 900", "\r\n"
+    };
+    EXPECT_EQ(expected, outLines);
+
+    auto cond = kaboomControlConditions(0);
+    EXPECT_EQ(0, cond[0].auxChannelIndex);
+    EXPECT_EQ(0, cond[1].auxChannelIndex);
+    EXPECT_EQ(0, cond[2].auxChannelIndex);
+}
+
+TEST_F(CliWriteTest, TestCliKaboomControl_NotEnoughArgs)
+{
+    const char cmd[] = "kaboom_control";
+    char args[] = "0 ";
+    cliKaboomControl(cmd, args);
+    vector<string> expected = {
+        "###ERROR IN ", "kaboom_control", ": ", "INVALID ARGUMENT COUNT###", "\r\n"
+    };
+    EXPECT_EQ(expected, outLines);
+
+    auto cond = kaboomControlConditions(0);
+    EXPECT_EQ(0, cond[0].auxChannelIndex);
+    EXPECT_EQ(0, cond[1].auxChannelIndex);
+    EXPECT_EQ(0, cond[2].auxChannelIndex);
+}
+
+TEST_F(CliWriteTest, TestCliKaboomControl_InvalidChannelIndex)
+{
+    const char cmd[] = "kaboom_control";
+    char args[] = "1 0 14 1800 2100";
+    cliKaboomControl(cmd, args);
+    vector<string> expected = {
+        "###ERROR IN ", "kaboom_control", ": ", "CHANNEL_INDEX NOT BETWEEN 0 AND 13###", "\r\n"
+    };
+    EXPECT_EQ(expected, outLines);
+
+    auto cond = kaboomControlConditions(0);
+    EXPECT_EQ(0, cond[0].auxChannelIndex);
+    EXPECT_EQ(0, cond[1].auxChannelIndex);
+    EXPECT_EQ(0, cond[2].auxChannelIndex);
+}
+
+TEST_F(CliWriteTest, TestCliKaboomControl_InvalidKaboomControl)
+{
+    const char cmd[] = "kaboom_control";
+    char args[] = "0 3 13 1800 2100";
+    cliKaboomControl(cmd, args);
+    vector<string> expected = {
+        "###ERROR IN ", "kaboom_control", ": ", "KABOOM_CONTROL NOT BETWEEN 0 AND 2###", "\r\n"
+    };
+    EXPECT_EQ(expected, outLines);
+
+    auto cond = kaboomControlConditions(0);
+    EXPECT_EQ(0, cond[0].auxChannelIndex);
+    EXPECT_EQ(0, cond[1].auxChannelIndex);
+    EXPECT_EQ(0, cond[2].auxChannelIndex);
+}
+
+TEST_F(CliWriteTest, TestCliKaboomControl_OutOfRangeNumber)
+{
+    const char cmd[] = "kaboom_control";
+    char args[] = "0 9223372036854775808 13 1800 2100";
+    cliKaboomControl(cmd, args);
+    vector<string> expected = {
+        "###ERROR IN ", "kaboom_control", ": ", "KABOOM_CONTROL NOT BETWEEN 0 AND 2###", "\r\n"
+    };
+    EXPECT_EQ(expected, outLines);
+
+    auto cond = kaboomControlConditions(0);
+    EXPECT_EQ(0, cond[0].auxChannelIndex);
+    EXPECT_EQ(0, cond[1].auxChannelIndex);
+    EXPECT_EQ(0, cond[2].auxChannelIndex);
+}
+
+TEST_F(CliWriteTest, TestCliKaboomControl_NotANumber)
+{
+    const char cmd[] = "kaboom_control";
+    char args[] = "0 a 13 1800 2100";
+    cliKaboomControl(cmd, args);
+    vector<string> expected = {
+        "###ERROR IN ", "kaboom_control", ": ", "KABOOM_CONTROL IS NOT A NUMBER###", "\r\n"
+    };
+    EXPECT_EQ(expected, outLines);
+
+    auto cond = kaboomControlConditions(0);
+    EXPECT_EQ(0, cond[0].auxChannelIndex);
+    EXPECT_EQ(0, cond[1].auxChannelIndex);
+    EXPECT_EQ(0, cond[2].auxChannelIndex);
+}
+
+TEST_F(CliWriteTest, TestCliKaboomControl_SetCondition)
+{
+    const char cmd[] = "kaboom_control";
+    char args[] = "2 2 1  900 1200";
+    cliKaboomControl(cmd, args);
+    vector<string> expected = {
+        "kaboom_control 2 2 1 900 1200", "\r\n",
+    };
+    EXPECT_EQ(expected, outLines);
+
+    auto cond = kaboomControlConditions(0);
+    auto ctl2 = cond[2];
+    EXPECT_EQ(1, ctl2.auxChannelIndex);
+    EXPECT_EQ(0, ctl2.range.startStep);
+    EXPECT_EQ(12, ctl2.range.endStep);
+    EXPECT_EQ(0, cond[0].auxChannelIndex);
+    EXPECT_EQ(0, cond[1].auxChannelIndex);
+}
+// End of kaboom tests
 
 // STUBS
 extern "C" {
@@ -286,7 +496,7 @@ void beeperOffClear(uint32_t) {}
 void beeperOffClearAll(void) {}
 bool parseColor(int, const char *) {return false; }
 bool resetEEPROM(void) { return true; }
-void bufWriterFlush(bufWriter_t *) {}
+// void bufWriterFlush(bufWriter_t *) {}
 void mixerResetDisarmedMotors(void) {}
 
 typedef enum {
@@ -348,9 +558,7 @@ const char * const shortGitRevision = "MASTER";
 //uint32_t serialRxBytesWaiting(const serialPort_t *) {return 0;}
 //uint8_t serialRead(serialPort_t *){return 0;}
 
-void bufWriterAppend(bufWriter_t *, uint8_t ch){ printf("%c", ch); }
 //void serialWriteBufShim(void *, const uint8_t *, int) {}
-void bufWriterInit(bufWriter_t *, uint8_t *, int, bufWrite_t, void *) { }
 //void setArmingDisabled(armingDisableFlags_e) {}
 
 void waitForSerialPortToFinishTransmitting(serialPort_t *) {}
@@ -389,4 +597,5 @@ displayPort_t *osdGetDisplayPort(osdDisplayPortDevice_e *) { return NULL; }
 mcuTypeId_e getMcuTypeId(void) { return MCU_TYPE_UNKNOWN; }
 uint16_t getCurrentRxIntervalUs(void) { return 0; }
 uint16_t getAverageSystemLoadPercent(void) { return 0; }
+bool isRangeActive(uint8_t, const channelRange_t *) { return false; }
 }
